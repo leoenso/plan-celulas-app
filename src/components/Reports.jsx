@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { useAppStore } from '../context/AppContext'
 
 import {
   Badge,
@@ -55,6 +56,13 @@ export default function Reports({ user, profile }) {
   const allowDelete = canDelete(role, 'reports')
   const allowReview = canReview(role, 'reports')
 
+  const {
+    assignedCells,
+    activeCell,
+    activeCellId,
+    setActiveCellId
+  } = useAppStore()
+
   async function loadData(options = {}) {
     setLoading(true)
     if (!options.keepMessage) setMessage('')
@@ -62,7 +70,7 @@ export default function Reports({ user, profile }) {
     const [cellsResponse, reportsResponse, profilesResponse] = await Promise.all([
       supabase
         .from('cells')
-        .select('id,name,zone,leader_id,status')
+        .select('id,name,zone,leader_id,assistant_id,assistant_name,meeting_day,meeting_time,host_name,status')
         .order('name'),
 
       supabase
@@ -94,6 +102,24 @@ export default function Reports({ user, profile }) {
   const cellsById = useMemo(() => {
     return Object.fromEntries(cells.map((cell) => [cell.id, cell]))
   }, [cells])
+
+  const availableCells = useMemo(() => {
+    if (role === 'admin') return cells
+    return assignedCells.length > 0 ? assignedCells : cells
+  }, [role, cells, assignedCells])
+
+  useEffect(() => {
+    if (role === 'admin') return
+
+    if (activeCellId) {
+      setCellFilter(activeCellId)
+      return
+    }
+
+    if (availableCells.length === 1) {
+      setCellFilter(availableCells[0].id)
+    }
+  }, [role, activeCellId, availableCells])
 
   const profilesById = useMemo(() => {
     return Object.fromEntries(profiles.map((item) => [item.user_id, item]))
@@ -145,13 +171,13 @@ export default function Reports({ user, profile }) {
 
   const summary = useMemo(() => {
     return {
-      total: reports.length,
-      drafts: reports.filter((report) => report.status === 'borrador').length,
-      sent: reports.filter((report) => report.status === 'enviado').length,
-      reviewed: reports.filter((report) => report.status === 'revisado').length,
-      attention: reports.filter((report) => report.mood === 'requiere atención').length
+      total: filteredReports.length,
+      drafts: filteredReports.filter((report) => report.status === 'borrador').length,
+      sent: filteredReports.filter((report) => report.status === 'enviado').length,
+      reviewed: filteredReports.filter((report) => report.status === 'revisado').length,
+      attention: filteredReports.filter((report) => report.mood === 'requiere atención').length
     }
-  }, [reports])
+  }, [filteredReports])
 
   function startCreate() {
     if (!allowCreate) {
@@ -160,7 +186,10 @@ export default function Reports({ user, profile }) {
     }
 
     setSelectedReport(null)
-    setForm(emptyReport)
+    setForm({
+      ...emptyReport,
+      cell_id: role === 'admin' ? '' : activeCell?.id || activeCellId || ''
+    })
     setMode('create')
     setMessage('')
   }
@@ -364,12 +393,14 @@ export default function Reports({ user, profile }) {
         mode={mode}
         form={form}
         setForm={setForm}
-        cells={cells}
+        cells={availableCells}
         statusOptions={visibleStatusOptions}
         saving={saving}
         message={message}
         onSubmit={saveReport}
         onBack={backToList}
+        role={role}
+        activeCellId={activeCell?.id || activeCellId}
       />
     )
   }
@@ -514,6 +545,18 @@ export default function Reports({ user, profile }) {
 
       {message && <Notice>{message}</Notice>}
 
+      {role !== 'admin' && (
+        <ReportsActiveCellCard
+          cells={availableCells}
+          activeCell={activeCell}
+          activeCellId={activeCell?.id || activeCellId}
+          onChangeCell={(cellId) => {
+            setActiveCellId(cellId)
+            setCellFilter(cellId)
+          }}
+        />
+      )}
+
       <Card>
         <div className="mb-5">
           <p className="eyebrow">Consulta</p>
@@ -535,9 +578,20 @@ export default function Reports({ user, profile }) {
           </Field>
 
           <Field label="Célula">
-            <Select value={cellFilter} onChange={(event) => setCellFilter(event.target.value)}>
-              <option value="todas">Todas</option>
-              {cells.map((cell) => (
+            <Select
+              value={cellFilter}
+              onChange={(event) => {
+                const nextCellId = event.target.value
+                setCellFilter(nextCellId)
+
+                if (role !== 'admin' && nextCellId !== 'todas') {
+                  setActiveCellId(nextCellId)
+                }
+              }}
+            >
+              {role === 'admin' && <option value="todas">Todas</option>}
+
+              {availableCells.map((cell) => (
                 <option key={cell.id} value={cell.id}>
                   {cell.name}
                 </option>
@@ -580,7 +634,7 @@ export default function Reports({ user, profile }) {
               type="button"
               onClick={() => {
                 setQuery('')
-                setCellFilter('todas')
+                setCellFilter(role === 'admin' ? 'todas' : activeCell?.id || activeCellId || availableCells[0]?.id || 'todas')
                 setStatusFilter('todos')
                 setMoodFilter('todos')
                 setDateFilter('')
@@ -698,6 +752,74 @@ export default function Reports({ user, profile }) {
   )
 }
 
+
+function ReportsActiveCellCard({
+  cells,
+  activeCell,
+  activeCellId,
+  onChangeCell
+}) {
+  const selectedCellId = activeCellId || activeCell?.id || cells[0]?.id || ''
+
+  if (!cells.length) {
+    return (
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="eyebrow">Célula activa</p>
+            <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+              No tienes célula asignada
+            </h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Cuando un administrador te asigne como líder o auxiliar, podrás crear informes para esa célula.
+            </p>
+          </div>
+
+          <span className="material-symbols-rounded rounded-3xl bg-[#EAF4F8] p-4 text-4xl text-[#003B5C]">
+            assignment
+          </span>
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="eyebrow">Célula activa</p>
+          <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+            {activeCell?.name || 'Selecciona una célula'}
+          </h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {activeCell
+              ? `${activeCell.zone || 'Sin zona'} · ${activeCell.meeting_day || 'Sin día'} · ${activeCell.meeting_time ? String(activeCell.meeting_time).slice(0, 5) : 'Sin hora'}`
+              : 'Elige la célula con la que quieres trabajar.'}
+          </p>
+        </div>
+
+        <label className="min-w-72">
+          <span className="mb-2 block text-sm font-black text-slate-800">
+            Cambiar célula
+          </span>
+
+          <select
+            value={selectedCellId}
+            onChange={(event) => onChangeCell(event.target.value)}
+            className="block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100"
+          >
+            {cells.map((cell) => (
+              <option key={cell.id} value={cell.id}>
+                {cell.name} {cell.zone ? `· ${cell.zone}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </Card>
+  )
+}
+
 function ReportForm({
   mode,
   form,
@@ -707,7 +829,9 @@ function ReportForm({
   saving,
   message,
   onSubmit,
-  onBack
+  onBack,
+  role,
+  activeCellId
 }) {
   return (
     <main className="space-y-6">
@@ -741,6 +865,12 @@ function ReportForm({
                 </option>
               ))}
             </Select>
+
+            {role !== 'admin' && activeCellId && (
+              <span className="mt-2 block text-xs font-semibold text-slate-500">
+                Se está usando tu célula activa. Puedes cambiarla desde el selector superior.
+              </span>
+            )}
           </Field>
 
           <Field label="Fecha del informe">

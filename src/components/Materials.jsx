@@ -52,7 +52,6 @@ function getSourceIcon(sourceType, materialType) {
 }
 
 export default function Materials({ user, profile }) {
-  const [cells, setCells] = useState([])
   const [topics, setTopics] = useState([])
   const [materials, setMaterials] = useState([])
   const [mode, setMode] = useState('list')
@@ -60,7 +59,6 @@ export default function Materials({ user, profile }) {
   const [form, setForm] = useState(emptyMaterial)
   const [fileToUpload, setFileToUpload] = useState(null)
   const [query, setQuery] = useState('')
-  const [cellFilter, setCellFilter] = useState('todas')
   const [typeFilter, setTypeFilter] = useState('todos')
   const [categoryFilter, setCategoryFilter] = useState('todas')
   const [statusFilter, setStatusFilter] = useState('todos')
@@ -73,18 +71,12 @@ export default function Materials({ user, profile }) {
   const allowEdit = canEdit(role, 'materials')
   const allowDelete = canDelete(role, 'materials')
   const allowUpload = canUpload(role, 'materials')
-  const isAdmin = role === 'admin'
 
   async function loadData(options = {}) {
     setLoading(true)
     if (!options.keepMessage) setMessage('')
 
-    const [cellsResponse, topicsResponse, materialsResponse] = await Promise.all([
-      supabase
-        .from('cells')
-        .select('id,name,zone,leader_id,status')
-        .order('name'),
-
+    const [topicsResponse, materialsResponse] = await Promise.all([
       supabase
         .from('cell_topics')
         .select('id,cell_id,title,suggested_date,status')
@@ -92,15 +84,13 @@ export default function Materials({ user, profile }) {
 
       supabase
         .from('cell_materials')
-        .select('*, cells(id,name,zone,leader_id), cell_topics(id,title,suggested_date,status)')
+        .select('*, cell_topics(id,title,suggested_date,status)')
         .order('created_at', { ascending: false })
     ])
 
-    if (cellsResponse.error) setMessage(cellsResponse.error.message)
     if (topicsResponse.error) setMessage(topicsResponse.error.message)
     if (materialsResponse.error) setMessage(materialsResponse.error.message)
 
-    setCells(cellsResponse.data || [])
     setTopics(topicsResponse.data || [])
     setMaterials(materialsResponse.data || [])
     setLoading(false)
@@ -110,33 +100,22 @@ export default function Materials({ user, profile }) {
     loadData()
   }, [])
 
-  const cellsById = useMemo(() => {
-    return Object.fromEntries(cells.map((cell) => [cell.id, cell]))
-  }, [cells])
-
   const topicsById = useMemo(() => {
     return Object.fromEntries(topics.map((topic) => [topic.id, topic]))
   }, [topics])
 
   const topicsForSelectedCell = useMemo(() => {
-    if (!form.cell_id) return topics
-
-    return topics.filter((topic) => {
-      return !topic.cell_id || topic.cell_id === form.cell_id
-    })
-  }, [topics, form.cell_id])
+    return topics
+  }, [topics])
 
   const filteredMaterials = useMemo(() => {
     const normalizedQuery = normalizeText(query)
 
     return materials.filter((material) => {
-      const cell = material.cells || cellsById[material.cell_id]
       const topic = material.cell_topics || topicsById[material.topic_id]
       const sourceType = getSourceType(material)
 
       const searchable = normalizeText([
-        cell?.name,
-        cell?.zone,
         topic?.title,
         material.title,
         material.material_type,
@@ -154,22 +133,16 @@ export default function Materials({ user, profile }) {
 
       const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery)
 
-      const matchesCell =
-        cellFilter === 'todas' ||
-        (cellFilter === 'general' ? !material.cell_id : material.cell_id === cellFilter)
-
       const matchesType = typeFilter === 'todos' || material.material_type === typeFilter
       const matchesCategory = categoryFilter === 'todas' || material.category === categoryFilter
       const matchesStatus = statusFilter === 'todos' || material.status === statusFilter
 
-      return matchesQuery && matchesCell && matchesType && matchesCategory && matchesStatus
+      return matchesQuery && matchesType && matchesCategory && matchesStatus
     })
   }, [
     materials,
-    cellsById,
     topicsById,
     query,
-    cellFilter,
     typeFilter,
     categoryFilter,
     statusFilter
@@ -211,7 +184,6 @@ export default function Materials({ user, profile }) {
     setFileToUpload(null)
 
     setForm({
-      cell_id: material.cell_id || '',
       topic_id: material.topic_id || '',
       title: material.title || '',
       material_type: material.material_type || 'archivo',
@@ -290,11 +262,6 @@ export default function Materials({ user, profile }) {
       return
     }
 
-    if (!isAdmin && !form.cell_id) {
-      setMessage('Selecciona una célula. Los materiales generales solo los puede crear un administrador.')
-      return
-    }
-
     if (form.source_type === 'upload' && !allowUpload) {
       setMessage('Tu rol no tiene permiso para subir archivos.')
       return
@@ -333,7 +300,7 @@ export default function Materials({ user, profile }) {
       selectedMaterial?.storage_path
 
     const payload = {
-      cell_id: form.cell_id || null,
+      cell_id: null,
       topic_id: form.topic_id || null,
       title: form.title.trim(),
       material_type: form.material_type || 'archivo',
@@ -484,20 +451,17 @@ export default function Materials({ user, profile }) {
         fileToUpload={fileToUpload}
         setFileToUpload={setFileToUpload}
         selectedMaterial={selectedMaterial}
-        cells={cells}
         topicsForSelectedCell={topicsForSelectedCell}
         saving={saving}
         message={message}
         onSubmit={saveMaterial}
         onBack={backToList}
-        isAdmin={isAdmin}
         allowUpload={allowUpload}
       />
     )
   }
 
   if (mode === 'detail' && selectedMaterial) {
-    const cell = selectedMaterial.cells || cellsById[selectedMaterial.cell_id]
     const topic = selectedMaterial.cell_topics || topicsById[selectedMaterial.topic_id]
     const sourceType = getSourceType(selectedMaterial)
 
@@ -544,7 +508,7 @@ export default function Materials({ user, profile }) {
           <p className="eyebrow">Detalle de material</p>
           <h2>{selectedMaterial.title}</h2>
           <p className="muted mt-3">
-            {cell?.name || 'Material general'} · {getSourceLabel(sourceType)}
+            Material global · {getSourceLabel(sourceType)}
           </p>
         </section>
 
@@ -562,7 +526,7 @@ export default function Materials({ user, profile }) {
         <Card>
           <div className="grid gap-5">
             <MaterialBlock title="Tema vinculado" value={topic?.title} />
-            <MaterialBlock title="Célula" value={cell?.name || 'General'} />
+            <MaterialBlock title="Asignación" value="Material global" />
             <MaterialBlock title="Autor / Fuente" value={selectedMaterial.author} />
             <MaterialBlock title="Archivo" value={selectedMaterial.file_name ? `${selectedMaterial.file_name} · ${formatFileSize(selectedMaterial.file_size)}` : null} />
             <MaterialBlock title="Descripción" value={selectedMaterial.description} />
@@ -615,25 +579,13 @@ export default function Materials({ user, profile }) {
           </p>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr_1fr_1fr_1fr_auto]">
+        <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr_1fr_1fr_auto]">
           <Field label="Buscar">
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Ej. oración, guía, video, PDF..."
             />
-          </Field>
-
-          <Field label="Asignación">
-            <Select value={cellFilter} onChange={(event) => setCellFilter(event.target.value)}>
-              <option value="todas">Todas</option>
-              <option value="general">General</option>
-              {cells.map((cell) => (
-                <option key={cell.id} value={cell.id}>
-                  {cell.name}
-                </option>
-              ))}
-            </Select>
           </Field>
 
           <Field label="Tipo">
@@ -674,7 +626,6 @@ export default function Materials({ user, profile }) {
               type="button"
               onClick={() => {
                 setQuery('')
-                setCellFilter('todas')
                 setTypeFilter('todos')
                 setCategoryFilter('todas')
                 setStatusFilter('todos')
@@ -715,8 +666,7 @@ export default function Materials({ user, profile }) {
         ) : (
           <div className="grid gap-4 lg:grid-cols-3">
             {filteredMaterials.map((material) => {
-              const cell = material.cells || cellsById[material.cell_id]
-              const topic = material.cell_topics || topicsById[material.topic_id]
+                      const topic = material.cell_topics || topicsById[material.topic_id]
               const sourceType = getSourceType(material)
 
               return (
@@ -736,7 +686,7 @@ export default function Materials({ user, profile }) {
                         {material.title}
                       </h4>
                       <p className="text-sm font-semibold text-slate-500">
-                        {cell?.name || 'General'}
+                        Material global
                       </p>
                     </div>
                   </div>
@@ -823,13 +773,11 @@ function MaterialForm({
   fileToUpload,
   setFileToUpload,
   selectedMaterial,
-  cells,
   topicsForSelectedCell,
   saving,
   message,
   onSubmit,
   onBack,
-  isAdmin,
   allowUpload
 }) {
   function handleSourceChange(sourceType) {
@@ -872,26 +820,6 @@ function MaterialForm({
             </Field>
           </div>
 
-          <Field label="Asignar a célula">
-            <Select
-              value={form.cell_id}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  cell_id: event.target.value,
-                  topic_id: ''
-                })
-              }
-            >
-              <option value="">Material general</option>
-              {cells.map((cell) => (
-                <option key={cell.id} value={cell.id}>
-                  {cell.name} {cell.zone ? `· ${cell.zone}` : ''}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
           <Field label="Vincular con tema">
             <Select
               value={form.topic_id}
@@ -905,14 +833,6 @@ function MaterialForm({
               ))}
             </Select>
           </Field>
-
-          {!isAdmin && !form.cell_id && (
-            <div className="md:col-span-2">
-              <Notice>
-                Selecciona una célula. Los materiales generales solo los puede crear un administrador.
-              </Notice>
-            </div>
-          )}
 
           {form.source_type === 'upload' && allowUpload && (
             <div className="md:col-span-2">

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useAppStore } from '../context/AppContext'
 import { supabase } from '../lib/supabaseClient'
 
 function normalizeText(value) {
@@ -185,6 +186,52 @@ function Card({ children, className = '' }) {
   )
 }
 
+function CollapsibleSection({
+  eyebrow,
+  title,
+  description,
+  defaultOpen = true,
+  children
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-slate-50"
+        aria-expanded={open}
+      >
+        <div>
+          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+          <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+            {title}
+          </h3>
+          {description && (
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              {description}
+            </p>
+          )}
+        </div>
+
+        <span
+          className={`material-symbols-rounded rounded-2xl bg-[#EAF4F8] p-2 text-3xl text-[#003B5C] transition ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        >
+          keyboard_arrow_down
+        </span>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-slate-100 p-5">
+          {children}
+        </div>
+      )}
+    </section>
+  )
+}
+
 function Badge({ children, className = '' }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-black capitalize ${className}`}>
@@ -247,9 +294,17 @@ function StatCard({ icon, label, value, helper, tone = 'blue', onClick }) {
   )
 }
 
-function Notice({ children }) {
+function Notice({ children, tone = 'cyan' }) {
+  const tones = {
+    cyan: 'border-cyan-200 bg-cyan-50 text-cyan-800',
+    slate: 'border-slate-200 bg-slate-50 text-slate-700',
+    green: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    gold: 'border-amber-200 bg-amber-50 text-amber-800',
+    red: 'border-red-200 bg-red-50 text-red-800'
+  }
+
   return (
-    <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800">
+    <div className={`rounded-2xl border px-4 py-3 text-sm font-black ${tones[tone] || tones.cyan}`}>
       {children}
     </div>
   )
@@ -295,6 +350,13 @@ export default function Dashboard({
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
 
+  const {
+    assignedCells,
+    activeCell,
+    activeCellId,
+    setActiveCellId
+  } = useAppStore()
+
   const setPage =
     setCurrentPage ||
     setActivePage ||
@@ -339,7 +401,7 @@ export default function Dashboard({
     ] = await Promise.all([
       supabase
         .from('cells')
-        .select('id,name,zone,status,meeting_day,meeting_time,leader_id,host_name,created_at')
+        .select('id,name,zone,status,meeting_day,meeting_time,leader_id,assistant_id,assistant_name,host_name,created_at')
         .order('created_at', { ascending: false }),
 
       supabase
@@ -449,45 +511,107 @@ export default function Dashboard({
     }, {})
   }, [records])
 
+  const dashboardCellId = profile?.role === 'admin' ? '' : activeCellId
+
+  const scopedCells = useMemo(() => {
+    if (!dashboardCellId) return cells
+
+    return cells.filter((cell) => cell.id === dashboardCellId)
+  }, [cells, dashboardCellId])
+
+  const scopedCellIds = useMemo(() => {
+    return new Set(scopedCells.map((cell) => cell.id))
+  }, [scopedCells])
+
+  const scopedFamilies = useMemo(() => {
+    if (!dashboardCellId) return families
+
+    return families.filter((family) => scopedCellIds.has(family.cell_id))
+  }, [families, dashboardCellId, scopedCellIds])
+
+  const scopedMembers = useMemo(() => {
+    if (!dashboardCellId) return members
+
+    return members.filter((member) => scopedCellIds.has(member.cell_id))
+  }, [members, dashboardCellId, scopedCellIds])
+
+  const scopedSessions = useMemo(() => {
+    if (!dashboardCellId) return sessions
+
+    return sessions.filter((session) => scopedCellIds.has(session.cell_id))
+  }, [sessions, dashboardCellId, scopedCellIds])
+
+  const scopedSessionIds = useMemo(() => {
+    return new Set(scopedSessions.map((session) => session.id))
+  }, [scopedSessions])
+
+  const scopedRecords = useMemo(() => {
+    if (!dashboardCellId) return records
+
+    return records.filter((record) => scopedSessionIds.has(record.session_id))
+  }, [records, dashboardCellId, scopedSessionIds])
+
+  const scopedReports = useMemo(() => {
+    if (!dashboardCellId) return reports
+
+    return reports.filter((report) => scopedCellIds.has(report.cell_id))
+  }, [reports, dashboardCellId, scopedCellIds])
+
+  const scopedNeeds = useMemo(() => {
+    if (!dashboardCellId) return needs
+
+    return needs.filter((need) => scopedCellIds.has(need.cell_id))
+  }, [needs, dashboardCellId, scopedCellIds])
+
+  const scopedTopics = useMemo(() => {
+    if (!dashboardCellId) return topics
+
+    return topics.filter((topic) => !topic.cell_id || scopedCellIds.has(topic.cell_id))
+  }, [topics, dashboardCellId, scopedCellIds])
+
+  const dashboardScopeLabel = activeCell && profile?.role !== 'admin'
+    ? `Datos filtrados por: ${activeCell.name}`
+    : 'Datos generales del ministerio'
+
   const dashboard = useMemo(() => {
-    const activeCells = cells.filter((cell) => cell.status === 'activa')
-    const activeFamilies = families.filter((family) => family.active !== false)
-    const activeMembers = members.filter((member) => member.active !== false)
+    const activeCells = scopedCells.filter((cell) => cell.status === 'activa')
+    const activeFamilies = scopedFamilies.filter((family) => family.active !== false)
+    const activeMembers = scopedMembers.filter((member) => member.active !== false)
 
     const peopleInFamilies = activeFamilies.reduce((sum, family) => {
       return sum + Number(family.member_count || 0)
     }, 0)
 
     const estimatedPeople = peopleInFamilies + activeMembers.length
-    const attendanceCounts = getAttendanceCounts(records)
+    const attendanceCounts = getAttendanceCounts(scopedRecords)
 
     const attendancePercentage =
       attendanceCounts.expected > 0
         ? Math.round((attendanceCounts.present / attendanceCounts.expected) * 100)
         : 0
 
-    const urgentNeeds = needs.filter((need) => {
+    const urgentNeeds = scopedNeeds.filter((need) => {
       return need.priority === 'urgente' && need.status !== 'resuelta' && need.status !== 'archivada'
     })
 
-    const pendingNeeds = needs.filter((need) => {
+    const pendingNeeds = scopedNeeds.filter((need) => {
       return need.status === 'pendiente' || need.status === 'en seguimiento'
     })
 
-    const pendingReports = reports.filter((report) => {
+    const pendingReports = scopedReports.filter((report) => {
       return report.status === 'borrador' || report.status === 'enviado'
     })
 
     const currentWeekStart = toDateKey(startOfWeek(new Date()))
     const currentWeekEnd = toDateKey(endOfWeek(new Date()))
 
-    const topicsThisWeek = topics.filter((topic) => {
+    const topicsThisWeek = scopedTopics.filter((topic) => {
       return dateInRange(topic.suggested_date, currentWeekStart, currentWeekEnd)
     })
 
     return {
       activeCells: activeCells.length,
-      totalCells: cells.length,
+      totalCells: scopedCells.length,
       families: activeFamilies.length,
       estimatedPeople,
       attendanceCounts,
@@ -499,28 +623,38 @@ export default function Dashboard({
       materials: materials.length,
       activeUsers: profiles.filter((item) => item.active !== false).length
     }
-  }, [cells, families, members, records, needs, reports, topics, materials, profiles])
+  }, [
+    scopedCells,
+    scopedFamilies,
+    scopedMembers,
+    scopedRecords,
+    scopedNeeds,
+    scopedReports,
+    scopedTopics,
+    materials,
+    profiles
+  ])
 
   const filteredChartData = useMemo(() => {
-    const rangeSessions = sessions.filter((session) => {
+    const rangeSessions = scopedSessions.filter((session) => {
       return dateInRange(session.meeting_date, chartStartDate, chartEndDate)
     })
 
     const sessionIds = new Set(rangeSessions.map((session) => session.id))
 
-    const rangeRecords = records.filter((record) => {
+    const rangeRecords = scopedRecords.filter((record) => {
       return sessionIds.has(record.session_id)
     })
 
-    const rangeReports = reports.filter((report) => {
+    const rangeReports = scopedReports.filter((report) => {
       return dateInRange(report.report_date, chartStartDate, chartEndDate)
     })
 
-    const rangeNeeds = needs.filter((need) => {
+    const rangeNeeds = scopedNeeds.filter((need) => {
       return dateInRange(need.created_at, chartStartDate, chartEndDate)
     })
 
-    const rangeTopics = topics.filter((topic) => {
+    const rangeTopics = scopedTopics.filter((topic) => {
       return dateInRange(topic.suggested_date, chartStartDate, chartEndDate)
     })
 
@@ -537,11 +671,11 @@ export default function Dashboard({
       materials: rangeMaterials
     }
   }, [
-    sessions,
-    records,
-    reports,
-    needs,
-    topics,
+    scopedSessions,
+    scopedRecords,
+    scopedReports,
+    scopedNeeds,
+    scopedTopics,
     materials,
     chartStartDate,
     chartEndDate
@@ -558,19 +692,19 @@ export default function Dashboard({
     const cellStatusData = [
       {
         label: 'Activas',
-        value: cells.filter((cell) => cell.status === 'activa').length
+        value: scopedCells.filter((cell) => cell.status === 'activa').length
       },
       {
         label: 'En formación',
-        value: cells.filter((cell) => cell.status === 'en formación' || cell.status === 'en-formación').length
+        value: scopedCells.filter((cell) => cell.status === 'en formación' || cell.status === 'en-formación').length
       },
       {
         label: 'En pausa',
-        value: cells.filter((cell) => cell.status === 'en pausa').length
+        value: scopedCells.filter((cell) => cell.status === 'en pausa').length
       },
       {
         label: 'Cerradas',
-        value: cells.filter((cell) => cell.status === 'cerrada').length
+        value: scopedCells.filter((cell) => cell.status === 'cerrada').length
       }
     ]
 
@@ -719,7 +853,7 @@ export default function Dashboard({
         materials: filteredChartData.materials.length
       }
     }
-  }, [filteredChartData, cells, chartStartDate, chartEndDate])
+  }, [filteredChartData, scopedCells, chartStartDate, chartEndDate])
 
   const filteredSearchResults = useMemo(() => {
     const normalizedQuery = normalizeText(query)
@@ -785,20 +919,20 @@ export default function Dashboard({
     return [...resultCells, ...resultNeeds, ...resultTopics, ...resultMaterials].slice(0, 10)
   }, [query, cells, needs, topics, materials])
 
-  const recentAttendance = sessions.slice(0, 5)
+  const recentAttendance = scopedSessions.slice(0, 5)
 
-  const urgentNeeds = needs
+  const urgentNeeds = scopedNeeds
     .filter((need) => need.priority === 'urgente' && need.status !== 'resuelta' && need.status !== 'archivada')
     .slice(0, 5)
 
-  const pendingReports = reports
+  const pendingReports = scopedReports
     .filter((report) => report.status === 'borrador' || report.status === 'enviado')
     .slice(0, 5)
 
   const currentWeekStart = toDateKey(startOfWeek(new Date()))
   const currentWeekEnd = toDateKey(endOfWeek(new Date()))
 
-  const upcomingTopics = topics
+  const upcomingTopics = scopedTopics
     .filter((topic) => dateInRange(topic.suggested_date, currentWeekStart, currentWeekEnd))
     .slice(0, 5)
 
@@ -828,37 +962,55 @@ export default function Dashboard({
 
       {message && <Notice>{message}</Notice>}
 
-      <Card>
-        <div className="grid gap-4 lg:grid-cols-[1.3fr_auto]">
-          <div>
-            <p className="eyebrow">Buscador rápido</p>
-            <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-              Encuentra información en la app
-            </h3>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              Busca células, necesidades, temas o materiales.
-            </p>
-          </div>
+      <FeaturedSummaryPanel
+        dashboard={dashboard}
+        dashboardView={dashboardView}
+        setDashboardView={setDashboardView}
+        chartData={chartData}
+        chartPreset={chartPreset}
+        chartStartDate={chartStartDate}
+        chartEndDate={chartEndDate}
+        setChartPreset={setChartPreset}
+        setChartStartDate={setChartStartDate}
+        setChartEndDate={setChartEndDate}
+        applyChartPreset={applyChartPreset}
+        setPage={setPage}
+        scopeLabel={dashboardScopeLabel}
+      />
 
-          <div className="flex items-end">
-            <SecondaryButton onClick={() => loadDashboard()}>
-              <span className="material-symbols-rounded text-lg">refresh</span>
-              Actualizar
-            </SecondaryButton>
-          </div>
+      {profile?.role !== 'admin' && (
+        <MyAssignedCellsCard
+          cells={assignedCells}
+          activeCell={activeCell}
+          activeCellId={activeCellId}
+          profile={profile}
+          onChangeCell={setActiveCellId}
+          setPage={setPage}
+        />
+      )}
+
+
+      <CollapsibleSection
+        eyebrow="Consulta"
+        title="Buscador rápido"
+        description="Busca células, necesidades, temas o materiales sin salir del panel."
+      >
+        <div className="flex flex-wrap justify-end gap-3">
+          <SecondaryButton onClick={() => loadDashboard()}>
+            <span className="material-symbols-rounded text-lg">refresh</span>
+            Actualizar
+          </SecondaryButton>
         </div>
 
-        <div className="mt-5">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Ej. oración, familia, discipulado, material..."
-            className="block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100"
-          />
-        </div>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Ej. oración, familia, discipulado, material..."
+          className="block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100"
+        />
 
         {query && (
-          <div className="mt-5">
+          <div>
             {filteredSearchResults.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-400">
                 No encontré resultados con esa búsqueda.
@@ -889,143 +1041,13 @@ export default function Dashboard({
             )}
           </div>
         )}
-      </Card>
+      </CollapsibleSection>
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="eyebrow">Vista del panel</p>
-            <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-              Resumen visual
-            </h3>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              Cambia entre tarjetas rápidas o gráficas de avance.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
-            <button
-              type="button"
-              onClick={() => setDashboardView('cards')}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-black transition ${
-                dashboardView === 'cards'
-                  ? 'bg-[#003B5C] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-white'
-              }`}
-            >
-              <span className="material-symbols-rounded text-lg">dashboard</span>
-              Tarjetas
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDashboardView('charts')}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-black transition ${
-                dashboardView === 'charts'
-                  ? 'bg-[#003B5C] text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-white'
-              }`}
-            >
-              <span className="material-symbols-rounded text-lg">monitoring</span>
-              Gráficas
-            </button>
-          </div>
-        </div>
-      </Card>
-
-      {dashboardView === 'cards' ? (
-        <>
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              icon="groups"
-              label="Células activas"
-              value={dashboard.activeCells}
-              helper={`${dashboard.totalCells} registradas`}
-              tone="blue"
-              onClick={() => setPage('cells')}
-            />
-
-            <StatCard
-              icon="family_restroom"
-              label="Familias"
-              value={dashboard.families}
-              helper={`${dashboard.estimatedPeople} personas estimadas`}
-              tone="green"
-              onClick={() => setPage('cells')}
-            />
-
-            <StatCard
-              icon="fact_check"
-              label="Asistencia"
-              value={`${dashboard.attendancePercentage}%`}
-              helper={`${dashboard.attendanceCounts.present} de ${dashboard.attendanceCounts.expected} recientes`}
-              tone={dashboard.attendancePercentage >= 70 ? 'green' : 'gold'}
-              onClick={() => setPage('attendance')}
-            />
-
-            <StatCard
-              icon="priority_high"
-              label="Urgentes"
-              value={dashboard.urgentNeeds}
-              helper={`${dashboard.pendingNeeds} necesidades pendientes`}
-              tone={dashboard.urgentNeeds > 0 ? 'red' : 'green'}
-              onClick={() => setPage('needs')}
-            />
-          </section>
-
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              icon="assignment"
-              label="Informes pendientes"
-              value={dashboard.pendingReports}
-              helper="Borradores o enviados"
-              tone="gold"
-              onClick={() => setPage('reports')}
-            />
-
-            <StatCard
-              icon="calendar_month"
-              label="Temas esta semana"
-              value={dashboard.topicsThisWeek}
-              helper="Programados de lunes a domingo"
-              tone="blue"
-              onClick={() => setPage('topics')}
-            />
-
-            <StatCard
-              icon="folder_open"
-              label="Materiales recientes"
-              value={dashboard.materials}
-              helper="Últimos recursos cargados"
-              tone="violet"
-              onClick={() => setPage('materials')}
-            />
-
-            <StatCard
-              icon="group"
-              label="Usuarios activos"
-              value={dashboard.activeUsers}
-              helper="Usuarios con acceso activo"
-              tone="green"
-              onClick={() => setPage('users')}
-            />
-          </section>
-        </>
-      ) : (
-        <DashboardCharts
-          dashboard={dashboard}
-          chartData={chartData}
-          chartPreset={chartPreset}
-          chartStartDate={chartStartDate}
-          chartEndDate={chartEndDate}
-          setChartPreset={setChartPreset}
-          setChartStartDate={setChartStartDate}
-          setChartEndDate={setChartEndDate}
-          applyChartPreset={applyChartPreset}
-          setPage={setPage}
-        />
-      )}
-
+      <CollapsibleSection
+        eyebrow="Actividad y seguimiento"
+        title="Asistencia y necesidades urgentes"
+        description="Oculta o muestra los movimientos recientes y los casos que requieren atención."
+      >
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <SectionHeader
@@ -1132,7 +1154,13 @@ export default function Dashboard({
           )}
         </Card>
       </section>
+      </CollapsibleSection>
 
+      <CollapsibleSection
+        eyebrow="Resumen operativo"
+        title="Informes, calendario y materiales"
+        description="Consulta los pendientes y recursos principales del periodo."
+      >
       <section className="grid gap-6 xl:grid-cols-3">
         <DashboardList
           eyebrow="Informes"
@@ -1200,14 +1228,13 @@ export default function Dashboard({
           ))}
         </DashboardList>
       </section>
+      </CollapsibleSection>
 
-      <Card>
-        <SectionHeader
-          eyebrow="Acciones rápidas"
-          title="Trabaja más rápido"
-          description="Atajos principales para operar el sistema."
-        />
-
+      <CollapsibleSection
+        eyebrow="Acciones rápidas"
+        title="Trabaja más rápido"
+        description="Atajos principales para operar el sistema."
+      >
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <QuickAction
             icon="groups"
@@ -1237,8 +1264,178 @@ export default function Dashboard({
             onClick={() => setPage('materials')}
           />
         </div>
-      </Card>
+      </CollapsibleSection>
     </main>
+  )
+}
+
+
+function FeaturedSummaryPanel({
+  dashboard,
+  dashboardView,
+  setDashboardView,
+  chartData,
+  chartPreset,
+  chartStartDate,
+  chartEndDate,
+  setChartPreset,
+  setChartStartDate,
+  setChartEndDate,
+  applyChartPreset,
+  setPage,
+  scopeLabel
+}) {
+  return (
+    <section className="overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-sm">
+      <div className="relative overflow-hidden border-b border-slate-100 bg-linear-to-br from-[#F8FCFF] via-white to-[#EEF8F2] p-6 md:p-7">
+        <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-[#EAF4F8] blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-emerald-100/60 blur-2xl" />
+
+        <div className="relative flex flex-wrap items-center justify-between gap-5">
+          <div>
+            <p className="eyebrow">Vista principal</p>
+            <h2 className="mt-1 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+              Resumen visual
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500 md:text-base">
+              Lo primero que ves al entrar: avance general, asistencia, temas, necesidades y actividad reciente.
+            </p>
+
+            {scopeLabel && (
+              <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow-sm">
+                <span className="material-symbols-rounded text-lg text-[#003B5C]">filter_alt</span>
+                <span className="truncate">{scopeLabel}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white/90 p-2 shadow-sm backdrop-blur">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setDashboardView('cards')}
+                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
+                  dashboardView === 'cards'
+                    ? 'bg-[#003B5C] text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-[#EAF4F8] hover:text-[#003B5C]'
+                }`}
+              >
+                <span className="material-symbols-rounded text-lg">dashboard</span>
+                Tarjetas
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDashboardView('charts')}
+                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
+                  dashboardView === 'charts'
+                    ? 'bg-[#003B5C] text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-[#EAF4F8] hover:text-[#003B5C]'
+                }`}
+              >
+                <span className="material-symbols-rounded text-lg">monitoring</span>
+                Gráficas
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5 md:p-6">
+        {dashboardView === 'cards' ? (
+          <div className="grid gap-4">
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                icon="groups"
+                label="Células activas"
+                value={dashboard.activeCells}
+                helper={`${dashboard.totalCells} registradas`}
+                tone="blue"
+                onClick={() => setPage('cells')}
+              />
+
+              <StatCard
+                icon="family_restroom"
+                label="Familias"
+                value={dashboard.families}
+                helper={`${dashboard.estimatedPeople} personas estimadas`}
+                tone="green"
+                onClick={() => setPage('cells')}
+              />
+
+              <StatCard
+                icon="fact_check"
+                label="Asistencia"
+                value={`${dashboard.attendancePercentage}%`}
+                helper={`${dashboard.attendanceCounts.present} de ${dashboard.attendanceCounts.expected} recientes`}
+                tone={dashboard.attendancePercentage >= 70 ? 'green' : 'gold'}
+                onClick={() => setPage('attendance')}
+              />
+
+              <StatCard
+                icon="priority_high"
+                label="Urgentes"
+                value={dashboard.urgentNeeds}
+                helper={`${dashboard.pendingNeeds} necesidades pendientes`}
+                tone={dashboard.urgentNeeds > 0 ? 'red' : 'green'}
+                onClick={() => setPage('needs')}
+              />
+            </section>
+
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                icon="assignment"
+                label="Informes pendientes"
+                value={dashboard.pendingReports}
+                helper="Borradores o enviados"
+                tone="gold"
+                onClick={() => setPage('reports')}
+              />
+
+              <StatCard
+                icon="calendar_month"
+                label="Temas esta semana"
+                value={dashboard.topicsThisWeek}
+                helper="Programados de lunes a domingo"
+                tone="blue"
+                onClick={() => setPage('topics')}
+              />
+
+              <StatCard
+                icon="folder_open"
+                label="Materiales recientes"
+                value={dashboard.materials}
+                helper="Últimos recursos cargados"
+                tone="violet"
+                onClick={() => setPage('materials')}
+              />
+
+              <StatCard
+                icon="group"
+                label="Usuarios activos"
+                value={dashboard.activeUsers}
+                helper="Usuarios con acceso activo"
+                tone="green"
+                onClick={() => setPage('users')}
+              />
+            </section>
+          </div>
+        ) : (
+          <DashboardCharts
+            dashboard={dashboard}
+            chartData={chartData}
+            chartPreset={chartPreset}
+            chartStartDate={chartStartDate}
+            chartEndDate={chartEndDate}
+            setChartPreset={setChartPreset}
+            setChartStartDate={setChartStartDate}
+            setChartEndDate={setChartEndDate}
+            applyChartPreset={applyChartPreset}
+            setPage={setPage}
+          />
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -1790,5 +1987,146 @@ function QuickAction({
         {description}
       </p>
     </button>
+  )
+}
+
+function MyAssignedCellsCard({
+  cells,
+  activeCell,
+  activeCellId,
+  profile,
+  onChangeCell,
+  setPage
+}) {
+  function getRoleInCell(cell) {
+    if (cell.leader_id === profile?.user_id) return 'Líder asignado'
+    if (cell.assistant_id === profile?.user_id) return 'Auxiliar asignado'
+    return 'Colaborador'
+  }
+
+  if (!cells.length) {
+    return (
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="eyebrow">Mi asignación</p>
+            <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+              Aún no tienes célula asignada
+            </h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Cuando un administrador te asigne como líder o auxiliar, tu célula aparecerá aquí.
+            </p>
+          </div>
+
+          <span className="material-symbols-rounded rounded-3xl bg-[#EAF4F8] p-4 text-4xl text-[#003B5C]">
+            groups
+          </span>
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="eyebrow">Mi asignación</p>
+          <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+            {cells.length === 1 ? 'Tu célula asignada' : 'Tus células asignadas'}
+          </h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {cells.length === 1
+              ? 'Esta es la célula donde estás sirviendo.'
+              : 'Selecciona la célula con la que quieres trabajar ahora.'}
+          </p>
+        </div>
+
+        {cells.length > 1 && (
+          <label className="min-w-72">
+            <span className="mb-2 block text-sm font-black text-slate-800">
+              Cambiar célula activa
+            </span>
+
+            <select
+              value={activeCellId}
+              onChange={(event) => onChangeCell(event.target.value)}
+              className="block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100"
+            >
+              {cells.map((cell) => (
+                <option key={cell.id} value={cell.id}>
+                  {cell.name} · {getRoleInCell(cell)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+
+      {activeCell && (
+        <article className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <Badge className="border-cyan-200 bg-cyan-50 text-cyan-700">
+                {getRoleInCell(activeCell)}
+              </Badge>
+
+              <h4 className="mt-3 text-2xl font-black text-slate-900">
+                {activeCell.name}
+              </h4>
+
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                {activeCell.zone || 'Sin zona registrada'}
+              </p>
+            </div>
+
+            <span className="material-symbols-rounded rounded-3xl bg-white p-4 text-4xl text-[#003B5C] shadow-sm">
+              diversity_3
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <InfoMiniCard label="Día" value={activeCell.meeting_day || 'Sin día'} />
+            <InfoMiniCard label="Hora" value={activeCell.meeting_time ? String(activeCell.meeting_time).slice(0, 5) : 'Sin hora'} />
+            <InfoMiniCard label="Anfitrión" value={activeCell.host_name || 'No registrado'} />
+            <InfoMiniCard label="Estado" value={activeCell.status || 'Sin estado'} />
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <SecondaryButton onClick={() => setPage('attendance')}>
+              <span className="material-symbols-rounded text-lg">fact_check</span>
+              Registrar asistencia
+            </SecondaryButton>
+
+            <SecondaryButton onClick={() => setPage('reports')}>
+              <span className="material-symbols-rounded text-lg">assignment</span>
+              Crear informe
+            </SecondaryButton>
+
+            <SecondaryButton onClick={() => setPage('needs')}>
+              <span className="material-symbols-rounded text-lg">volunteer_activism</span>
+              Ver necesidades
+            </SecondaryButton>
+
+            <SecondaryButton onClick={() => setPage('topics')}>
+              <span className="material-symbols-rounded text-lg">calendar_month</span>
+              Ver calendario
+            </SecondaryButton>
+          </div>
+        </article>
+      )}
+    </Card>
+  )
+}
+
+function InfoMiniCard({ label, value }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-black text-slate-800">
+        {value}
+      </p>
+    </div>
   )
 }

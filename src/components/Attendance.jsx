@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { canCreate, canDelete, canEdit } from '../lib/permissions'
+import { useAppStore } from '../context/AppContext'
 
 const emptySessionForm = {
   cell_id: '',
@@ -288,6 +289,13 @@ export default function Attendance({ user, profile }) {
   const allowEdit = canEdit(role, 'attendance')
   const allowDelete = canDelete(role, 'attendance')
 
+  const {
+    assignedCells,
+    activeCell,
+    activeCellId,
+    setActiveCellId
+  } = useAppStore()
+
   async function loadData(options = {}) {
     setLoading(true)
     if (!options.keepMessage) setMessage('')
@@ -295,7 +303,7 @@ export default function Attendance({ user, profile }) {
     const [cellsResponse, sessionsResponse] = await Promise.all([
       supabase
         .from('cells')
-        .select('id,name,zone,leader_id,meeting_day,meeting_time,status')
+        .select('id,name,zone,leader_id,assistant_id,assistant_name,host_name,meeting_day,meeting_time,status')
         .order('name'),
 
       supabase
@@ -354,6 +362,12 @@ export default function Attendance({ user, profile }) {
     loadData()
   }, [])
 
+  useEffect(() => {
+    if (role !== 'admin' && activeCellId) {
+      setCellFilter(activeCellId)
+    }
+  }, [activeCellId, role])
+
   const cellsById = useMemo(() => {
     return Object.fromEntries(cells.map((cell) => [cell.id, cell]))
   }, [cells])
@@ -384,8 +398,11 @@ export default function Attendance({ user, profile }) {
   }, [sessions, recordsBySession, cellsById, query, cellFilter, dateFilter])
 
   const summary = useMemo(() => {
-    const allRecords = Object.values(recordsBySession).flat()
-    const counts = getCounts(allRecords)
+    const filteredRecords = filteredSessions.flatMap((session) => {
+      return recordsBySession[session.id] || []
+    })
+
+    const counts = getCounts(filteredRecords)
 
     const percentage =
       counts.expected > 0
@@ -393,14 +410,14 @@ export default function Attendance({ user, profile }) {
         : 0
 
     return {
-      meetings: sessions.length,
+      meetings: filteredSessions.length,
       expected: counts.expected,
       present: counts.present,
       absent: counts.absent,
       families: counts.families,
       percentage
     }
-  }, [sessions, recordsBySession])
+  }, [filteredSessions, recordsBySession])
 
   async function loadMembersForCell(cellId) {
     if (!cellId) {
@@ -450,7 +467,7 @@ export default function Attendance({ user, profile }) {
       return
     }
 
-    const firstCellId = cells[0]?.id || ''
+    const firstCellId = activeCellId || cells[0]?.id || ''
 
     setSelectedSession(null)
     setSessionForm({
@@ -466,6 +483,11 @@ export default function Attendance({ user, profile }) {
 
   async function handleCellChange(cellId) {
     setSessionForm({ ...sessionForm, cell_id: cellId })
+
+    if (role !== 'admin' && cellId) {
+      setActiveCellId(cellId)
+    }
+
     await loadMembersForCell(cellId)
   }
 
@@ -926,6 +948,18 @@ export default function Attendance({ user, profile }) {
         </div>
       </section>
 
+      {role !== 'admin' && (
+        <ActiveAttendanceCellCard
+          cells={assignedCells.length ? assignedCells : cells}
+          activeCell={activeCell}
+          activeCellId={activeCellId}
+          onChangeCell={(cellId) => {
+            setActiveCellId(cellId)
+            setCellFilter(cellId || 'todas')
+          }}
+        />
+      )}
+
       <section className="grid gap-4 md:grid-cols-4">
         <StatCard icon="calendar_month" label="Reuniones" value={summary.meetings} tone="blue" />
         <StatCard icon="check_circle" label="Asistieron" value={summary.present} tone="green" />
@@ -956,7 +990,17 @@ export default function Attendance({ user, profile }) {
           </Field>
 
           <Field label="Célula">
-            <Select value={cellFilter} onChange={(event) => setCellFilter(event.target.value)}>
+            <Select
+              value={cellFilter}
+              onChange={(event) => {
+                const nextCellId = event.target.value
+                setCellFilter(nextCellId)
+
+                if (role !== 'admin' && nextCellId !== 'todas') {
+                  setActiveCellId(nextCellId)
+                }
+              }}
+            >
               <option value="todas">Todas</option>
               {cells.map((cell) => (
                 <option key={cell.id} value={cell.id}>
@@ -1088,6 +1132,68 @@ export default function Attendance({ user, profile }) {
         )}
       </Card>
     </main>
+  )
+}
+
+
+function ActiveAttendanceCellCard({ cells, activeCell, activeCellId, onChangeCell }) {
+  if (!cells.length) {
+    return (
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="eyebrow">Célula activa</p>
+            <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+              Aún no tienes célula asignada
+            </h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Pide a un administrador que te asigne como líder o auxiliar de una célula.
+            </p>
+          </div>
+
+          <span className="material-symbols-rounded rounded-3xl bg-[#EAF4F8] p-4 text-4xl text-[#003B5C]">
+            groups
+          </span>
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="eyebrow">Célula activa</p>
+          <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+            {activeCell?.name || 'Selecciona una célula'}
+          </h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {activeCell
+              ? `${activeCell.zone || 'Sin zona'} · ${activeCell.meeting_day || 'Sin día'} · ${activeCell.meeting_time ? String(activeCell.meeting_time).slice(0, 5) : 'Sin hora'}`
+              : 'Esta selección se usará para registrar asistencia más rápido.'}
+          </p>
+        </div>
+
+        {cells.length > 1 && (
+          <label className="min-w-72">
+            <span className="mb-2 block text-sm font-black text-slate-800">
+              Cambiar célula
+            </span>
+
+            <Select
+              value={activeCellId || ''}
+              onChange={(event) => onChangeCell(event.target.value)}
+            >
+              {cells.map((cell) => (
+                <option key={cell.id} value={cell.id}>
+                  {cell.name} {cell.zone ? `· ${cell.zone}` : ''}
+                </option>
+              ))}
+            </Select>
+          </label>
+        )}
+      </div>
+    </Card>
   )
 }
 

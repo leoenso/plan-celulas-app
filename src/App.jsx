@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
 import { canAccessView, getDefaultViewForRole } from './lib/permissions'
+import { AppProvider } from './context/AppContext'
 
 import Auth from './components/Auth'
 import Layout from './components/Layout'
@@ -30,6 +31,28 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState('dashboard')
 
+  const [assignedCells, setAssignedCells] = useState([])
+  const [activeCellId, setActiveCellIdState] = useState(() => {
+    return localStorage.getItem('plan_celulas_active_cell_id') || ''
+  })
+
+  const [theme, setThemeState] = useState(() => {
+    return localStorage.getItem('plan_celulas_theme') || 'light'
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('plan_celulas_theme', theme)
+  }, [theme])
+
+  function setTheme(nextTheme) {
+    setThemeState(nextTheme)
+  }
+
+  function toggleTheme() {
+    setThemeState((current) => (current === 'dark' ? 'light' : 'dark'))
+  }
+
   useEffect(() => {
     let mounted = true
 
@@ -51,6 +74,9 @@ export default function App() {
 
       if (!nextSession) {
         setProfile(null)
+        setAssignedCells([])
+        setActiveCellIdState('')
+        localStorage.removeItem('plan_celulas_active_cell_id')
         setView('dashboard')
       }
     })
@@ -81,6 +107,54 @@ export default function App() {
     loadProfile()
   }, [session])
 
+  const refreshAssignedCells = useCallback(async () => {
+    if (!profile?.user_id) {
+      setAssignedCells([])
+      setActiveCellIdState('')
+      localStorage.removeItem('plan_celulas_active_cell_id')
+      return
+    }
+
+    if (profile.role === 'admin') {
+      setAssignedCells([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('cells')
+      .select('id,name,zone,status,meeting_day,meeting_time,leader_id,assistant_id,assistant_name,host_name,address_reference')
+      .or(`leader_id.eq.${profile.user_id},assistant_id.eq.${profile.user_id}`)
+      .order('name')
+
+    if (error) {
+      console.error(error)
+      setAssignedCells([])
+      return
+    }
+
+    const nextCells = data || []
+    setAssignedCells(nextCells)
+
+    const savedCellId = localStorage.getItem('plan_celulas_active_cell_id') || ''
+    const savedStillExists = nextCells.some((cell) => cell.id === savedCellId)
+
+    const nextActiveCellId = savedStillExists
+      ? savedCellId
+      : nextCells[0]?.id || ''
+
+    setActiveCellIdState(nextActiveCellId)
+
+    if (nextActiveCellId) {
+      localStorage.setItem('plan_celulas_active_cell_id', nextActiveCellId)
+    } else {
+      localStorage.removeItem('plan_celulas_active_cell_id')
+    }
+  }, [profile?.user_id, profile?.role])
+
+  useEffect(() => {
+    refreshAssignedCells()
+  }, [refreshAssignedCells])
+
   useEffect(() => {
     if (!profile?.role) return
 
@@ -103,6 +177,45 @@ export default function App() {
     setView(getDefaultViewForRole(profile.role))
   }
 
+  function handleActiveCellChange(cellId) {
+    setActiveCellIdState(cellId)
+
+    if (cellId) {
+      localStorage.setItem('plan_celulas_active_cell_id', cellId)
+    } else {
+      localStorage.removeItem('plan_celulas_active_cell_id')
+    }
+  }
+
+  const activeCell = useMemo(() => {
+    if (!assignedCells.length) return null
+
+    return assignedCells.find((cell) => cell.id === activeCellId) || assignedCells[0]
+  }, [assignedCells, activeCellId])
+
+  const storeValue = useMemo(() => {
+    return {
+      session,
+      user: session?.user || null,
+      profile,
+      assignedCells,
+      activeCell,
+      activeCellId: activeCell?.id || '',
+      setActiveCellId: handleActiveCellChange,
+      refreshAssignedCells,
+      theme,
+      setTheme,
+      toggleTheme
+    }
+  }, [
+    session,
+    profile,
+    assignedCells,
+    activeCell,
+    refreshAssignedCells,
+    theme
+  ])
+
   const CurrentView = useMemo(() => {
     if (!profile?.role) return Dashboard
 
@@ -117,6 +230,9 @@ export default function App() {
     await supabase.auth.signOut()
     setSession(null)
     setProfile(null)
+    setAssignedCells([])
+    setActiveCellIdState('')
+    localStorage.removeItem('plan_celulas_active_cell_id')
     setView('dashboard')
   }
 
@@ -158,31 +274,33 @@ export default function App() {
   }
 
   return (
-    <Layout
-      user={session.user}
-      profile={profile}
-      currentView={view}
-      setCurrentView={safeSetView}
-      onLogout={handleLogout}
-    >
-      {!profile ? (
-        <section className="card">
-          <h2>Tu perfil aún se está preparando</h2>
-          <p>
-            Si acabas de registrarte, espera unos segundos y recarga la página.
-          </p>
-        </section>
-      ) : (
-        <CurrentView
-          user={session.user}
-          profile={profile}
-          currentView={view}
-          setCurrentView={safeSetView}
-          setCurrentPage={safeSetView}
-          setActivePage={safeSetView}
-          setActiveView={safeSetView}
-        />
-      )}
-    </Layout>
+    <AppProvider value={storeValue}>
+      <Layout
+        user={session.user}
+        profile={profile}
+        currentView={view}
+        setCurrentView={safeSetView}
+        onLogout={handleLogout}
+      >
+        {!profile ? (
+          <section className="card">
+            <h2>Tu perfil aún se está preparando</h2>
+            <p>
+              Si acabas de registrarte, espera unos segundos y recarga la página.
+            </p>
+          </section>
+        ) : (
+          <CurrentView
+            user={session.user}
+            profile={profile}
+            currentView={view}
+            setCurrentView={safeSetView}
+            setCurrentPage={safeSetView}
+            setActivePage={safeSetView}
+            setActiveView={safeSetView}
+          />
+        )}
+      </Layout>
+    </AppProvider>
   )
 }

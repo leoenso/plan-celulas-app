@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { useAppStore } from '../context/AppContext'
 
 import {
   Badge,
@@ -33,6 +34,13 @@ import {
 } from '../lib/needUtils'
 
 export default function Needs({ user, profile }) {
+  const {
+    assignedCells,
+    activeCell,
+    activeCellId,
+    setActiveCellId
+  } = useAppStore()
+
   const [cells, setCells] = useState([])
   const [families, setFamilies] = useState([])
   const [members, setMembers] = useState([])
@@ -57,6 +65,13 @@ export default function Needs({ user, profile }) {
   const allowCreate = canCreate(role, 'needs')
   const allowEdit = canEdit(role, 'needs')
   const allowDelete = canDelete(role, 'needs')
+
+  const showAssignedCellSwitcher = profile?.role !== 'admin' && assignedCells.length > 0
+  const activeAssignedCellId = activeCellId || activeCell?.id || ''
+  const effectiveCellFilter = showAssignedCellSwitcher
+    ? activeAssignedCellId
+    : cellFilter
+
 
   async function loadData(options = {}) {
     setLoading(true)
@@ -195,7 +210,7 @@ export default function Needs({ user, profile }) {
       ].join(' '))
 
       const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery)
-      const matchesCell = cellFilter === 'todas' || need.cell_id === cellFilter
+      const matchesCell = effectiveCellFilter === 'todas' || !effectiveCellFilter || need.cell_id === effectiveCellFilter
       const matchesPriority = priorityFilter === 'todas' || need.priority === priorityFilter
       const matchesStatus = statusFilter === 'todos' || need.status === statusFilter
       const matchesCategory = categoryFilter === 'todas' || need.category === categoryFilter
@@ -209,21 +224,26 @@ export default function Needs({ user, profile }) {
     membersById,
     profilesById,
     query,
-    cellFilter,
+    effectiveCellFilter,
     priorityFilter,
     statusFilter,
     categoryFilter
   ])
 
+  const availableCells = useMemo(() => {
+    if (profile?.role === 'admin') return cells
+    return assignedCells.length > 0 ? assignedCells : cells
+  }, [cells, assignedCells, profile?.role])
+
   const summary = useMemo(() => {
     return {
-      total: needs.length,
-      pending: needs.filter((need) => need.status === 'pendiente').length,
-      followUp: needs.filter((need) => need.status === 'en seguimiento').length,
-      urgent: needs.filter((need) => need.priority === 'urgente' && need.status !== 'resuelta').length,
-      resolved: needs.filter((need) => need.status === 'resuelta').length
+      total: filteredNeeds.length,
+      pending: filteredNeeds.filter((need) => need.status === 'pendiente').length,
+      followUp: filteredNeeds.filter((need) => need.status === 'en seguimiento').length,
+      urgent: filteredNeeds.filter((need) => need.priority === 'urgente' && need.status !== 'resuelta').length,
+      resolved: filteredNeeds.filter((need) => need.status === 'resuelta').length
     }
-  }, [needs])
+  }, [filteredNeeds])
 
   function startCreate() {
     if (!allowCreate) {
@@ -231,8 +251,18 @@ export default function Needs({ user, profile }) {
       return
     }
 
+    const defaultCellId =
+      profile?.role !== 'admin'
+        ? activeAssignedCellId
+        : cellFilter !== 'todas'
+          ? cellFilter
+          : ''
+
     setSelectedNeed(null)
-    setForm(emptyNeed)
+    setForm({
+      ...emptyNeed,
+      cell_id: defaultCellId
+    })
     setMode('create')
     setMessage('')
   }
@@ -407,7 +437,8 @@ export default function Needs({ user, profile }) {
         mode={mode}
         form={form}
         setForm={setForm}
-        cells={cells}
+        cells={availableCells}
+        onCellChange={showAssignedCellSwitcher ? setActiveCellId : null}
         familiesForSelectedCell={familiesForSelectedCell}
         membersForSelectedCell={membersForSelectedCell}
         profiles={profiles}
@@ -556,6 +587,15 @@ export default function Needs({ user, profile }) {
         </div>
       </section>
 
+      {showAssignedCellSwitcher && (
+        <ActiveNeedCellCard
+          cells={assignedCells}
+          activeCell={activeCell}
+          activeCellId={activeAssignedCellId}
+          onChangeCell={setActiveCellId}
+        />
+      )}
+
       <section className="grid gap-4 md:grid-cols-5">
         <StatCard icon="volunteer_activism" label="Total" value={summary.total} tone="blue" />
         <StatCard icon="pending_actions" label="Pendientes" value={summary.pending} tone="gold" />
@@ -587,14 +627,27 @@ export default function Needs({ user, profile }) {
           </Field>
 
           <Field label="Célula">
-            <Select value={cellFilter} onChange={(event) => setCellFilter(event.target.value)}>
-              <option value="todas">Todas</option>
-              {cells.map((cell) => (
-                <option key={cell.id} value={cell.id}>
-                  {cell.name}
-                </option>
-              ))}
-            </Select>
+            {showAssignedCellSwitcher ? (
+              <Select
+                value={activeAssignedCellId}
+                onChange={(event) => setActiveCellId(event.target.value)}
+              >
+                {assignedCells.map((cell) => (
+                  <option key={cell.id} value={cell.id}>
+                    {cell.name} {cell.zone ? `· ${cell.zone}` : ''}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <Select value={cellFilter} onChange={(event) => setCellFilter(event.target.value)}>
+                <option value="todas">Todas</option>
+                {cells.map((cell) => (
+                  <option key={cell.id} value={cell.id}>
+                    {cell.name}
+                  </option>
+                ))}
+              </Select>
+            )}
           </Field>
 
           <Field label="Categoría">
@@ -635,7 +688,7 @@ export default function Needs({ user, profile }) {
               type="button"
               onClick={() => {
                 setQuery('')
-                setCellFilter('todas')
+                if (!showAssignedCellSwitcher) setCellFilter('todas')
                 setCategoryFilter('todas')
                 setPriorityFilter('todas')
                 setStatusFilter('todos')
@@ -770,6 +823,7 @@ function NeedForm({
   form,
   setForm,
   cells,
+  onCellChange,
   familiesForSelectedCell,
   membersForSelectedCell,
   profiles,
@@ -800,7 +854,9 @@ function NeedForm({
           <Field label="Célula">
             <Select
               value={form.cell_id}
-              onChange={(event) =>
+              onChange={(event) => {
+                if (onCellChange) onCellChange(event.target.value)
+
                 setForm({
                   ...form,
                   cell_id: event.target.value,
@@ -808,7 +864,7 @@ function NeedForm({
                   member_id: '',
                   family_person_name: ''
                 })
-              }
+              }}
               required
             >
               <option value="">Selecciona una célula</option>
@@ -994,6 +1050,52 @@ function NeedForm({
         </form>
       </Card>
     </main>
+  )
+}
+
+
+function ActiveNeedCellCard({
+  cells,
+  activeCell,
+  activeCellId,
+  onChangeCell
+}) {
+  if (!cells.length) return null
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="eyebrow">Célula activa</p>
+          <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+            {activeCell?.name || 'Sin célula seleccionada'}
+          </h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            {activeCell?.zone || 'Sin zona'} · Las necesidades se filtrarán por esta célula.
+          </p>
+        </div>
+
+        {cells.length > 1 && (
+          <label className="min-w-72">
+            <span className="mb-2 block text-sm font-black text-slate-800">
+              Cambiar célula
+            </span>
+
+            <select
+              value={activeCellId}
+              onChange={(event) => onChangeCell(event.target.value)}
+              className="block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100"
+            >
+              {cells.map((cell) => (
+                <option key={cell.id} value={cell.id}>
+                  {cell.name} {cell.zone ? `· ${cell.zone}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+    </Card>
   )
 }
 
