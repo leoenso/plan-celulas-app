@@ -167,7 +167,7 @@ function StatCard({ icon, label, value, tone = 'blue' }) {
   }
 
   return (
-    <article className={`rounded-[28px] border bg-gradient-to-br p-5 shadow-sm ${tones[tone]}`}>
+    <article className={`rounded-[28px] border bg-linear-to-br p-5 shadow-sm ${tones[tone]}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-wide opacity-70">{label}</p>

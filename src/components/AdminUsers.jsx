@@ -134,7 +134,7 @@ function StatCard({ icon, label, value, tone = 'blue' }) {
   }
 
   return (
-    <article className={`rounded-[28px] border bg-gradient-to-br p-5 shadow-sm ${tones[tone]}`}>
+    <article className={`rounded-[28px] border bg-linear-to-br p-5 shadow-sm ${tones[tone]}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-wide opacity-70">{label}</p>
@@ -648,7 +648,7 @@ Gracias por apoyar el ministerio de células.`
                         </p>
 
                         {isEditing ? (
-                          <div className="mb-5 rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                          <div className="mb-5 rounded-3xl border border-slate-200 bg-slate-50 p-5">
                             <div className="grid gap-4 md:grid-cols-2">
                               <Field label="Nombre completo">
                                 <Input
@@ -715,7 +715,7 @@ Gracias por apoyar el ministerio de células.`
                           </div>
                         )}
 
-                        <div className="mb-5 rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                        <div className="mb-5 rounded-3xl border border-slate-200 bg-slate-50 p-5">
                           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                             <div>
                               <h5 className="font-black text-slate-900">Células asignadas</h5>
@@ -889,7 +889,7 @@ function PaginationControl({
   const end = Math.min(currentPage * pageSize, totalItems)
 
   return (
-    <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
       <div>
         <p className="text-sm font-black text-slate-800">
           Mostrando {start} - {end} de {totalItems} usuarios

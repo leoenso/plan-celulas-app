@@ -1426,7 +1426,7 @@ function MaterialPreview({ material }) {
         mime !== 'application/pdf' &&
         !mime.startsWith('video/') &&
         !mime.startsWith('audio/') && (
-          <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50 p-6">
+          <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-6">
             <p className="text-sm font-semibold text-slate-600">
               Este tipo de archivo no siempre se puede previsualizar en el navegador.
             </p>

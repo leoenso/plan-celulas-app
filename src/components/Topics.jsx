@@ -228,7 +228,7 @@ function StatCard({ icon, label, value, tone = 'blue' }) {
   }
 
   return (
-    <article className={`rounded-[28px] border bg-gradient-to-br p-5 shadow-sm ${tones[tone]}`}>
+    <article className={`rounded-[28px] border bg-linear-to-br p-5 shadow-sm ${tones[tone]}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-wide opacity-70">{label}</p>
@@ -974,7 +974,7 @@ function WeekCalendarView({ calendarDate, topicsByDate, cellsById, onOpen }) {
         return (
           <div
             key={dateKey}
-            className={`rounded-[24px] border bg-white p-4 ${
+            className={`rounded-3xl border bg-white p-4 ${
               isToday ? 'border-cyan-300 ring-4 ring-cyan-100' : 'border-slate-200'
             }`}
           >

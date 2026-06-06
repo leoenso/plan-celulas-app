@@ -810,7 +810,7 @@ export default function Dashboard({
         <div className="row-between wrap">
           <div>
             <p className="eyebrow">Panel principal</p>
-            <h2>Bienvenida al Plan de Células</h2>
+            <h2>Bienvenido al Plan de Células</h2>
             <p className="muted mt-3 max-w-3xl">
               Visualiza el estado general del ministerio: células, asistencia, informes,
               necesidades, temas, materiales y usuarios activos.
