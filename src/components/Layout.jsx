@@ -1,73 +1,14 @@
 import React, { useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { getAllowedViews, getRoleLabel } from '../lib/permissions'
 
-const navItems = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: 'dashboard',
-    description: 'Resumen general'
-  },
-  {
-    id: 'cells',
-    label: 'Células',
-    icon: 'groups',
-    description: 'Familias y grupos'
-  },
-  {
-    id: 'attendance',
-    label: 'Asistencia',
-    icon: 'fact_check',
-    description: 'Registro semanal'
-  },
-  {
-    id: 'reports',
-    label: 'Informes',
-    icon: 'assignment',
-    description: 'Reportes de líderes'
-  },
-  {
-    id: 'needs',
-    label: 'Necesidades',
-    icon: 'volunteer_activism',
-    description: 'Seguimiento pastoral'
-  },
-  {
-    id: 'topics',
-    label: 'Calendario',
-    icon: 'calendar_month',
-    description: 'Temas y fechas'
-  },
-  {
-    id: 'materials',
-    label: 'Materiales',
-    icon: 'folder_open',
-    description: 'Recursos y guías'
-  },
-  {
-    id: 'users',
-    label: 'Usuarios',
-    icon: 'admin_panel_settings',
-    description: 'Roles y permisos',
-    adminOnly: true
-  }
-]
-
-function getRoleLabel(role) {
-  if (role === 'admin') return 'Administrador'
-  if (role === 'leader') return 'Líder'
-  if (role === 'auxiliar') return 'Auxiliar'
-  if (role === 'viewer') return 'Solo lectura'
-  return 'Usuario'
-}
-
-function getPageTitle(pageId) {
-  const item = navItems.find((navItem) => navItem.id === pageId)
+function getPageTitle(pageId, items) {
+  const item = items.find((navItem) => navItem.id === pageId || navItem.key === pageId)
   return item?.label || 'Plan de Células'
 }
 
-function getPageDescription(pageId) {
-  const item = navItems.find((navItem) => navItem.id === pageId)
+function getPageDescription(pageId, items) {
+  const item = items.find((navItem) => navItem.id === pageId || navItem.key === pageId)
   return item?.description || 'Sistema de gestión ministerial'
 }
 
@@ -123,10 +64,7 @@ export default function Layout({
     (() => {})
 
   const visibleNavItems = useMemo(() => {
-    return navItems.filter((item) => {
-      if (item.adminOnly) return profile?.role === 'admin'
-      return true
-    })
+    return getAllowedViews(profile?.role)
   }, [profile?.role])
 
   const displayName =
@@ -162,7 +100,7 @@ export default function Layout({
           <div className="brand-block inp-brand">
             <div className="brand-logo-wrap">
               <img
-                 src="/inp-logo.png"
+                src="/inp-logo.png"
                 alt="Iglesia Nacional Presbiteriana"
                 className="brand-logo"
                 onError={(event) => {
@@ -183,14 +121,14 @@ export default function Layout({
 
           <nav className="nav-menu" aria-label="Navegación principal">
             {visibleNavItems.map((item) => {
-              const active = activeModule === item.id
+              const active = activeModule === item.id || activeModule === item.key
 
               return (
                 <button
-                  key={item.id}
+                  key={item.id || item.key}
                   type="button"
                   className={`nav-button ${active ? 'active' : ''}`}
-                  onClick={() => handleNavigation(item.id)}
+                  onClick={() => handleNavigation(item.id || item.key)}
                 >
                   <span className="material-symbols-rounded" aria-hidden="true">
                     {item.icon}
@@ -244,8 +182,8 @@ export default function Layout({
 
           <div>
             <p className="topbar-kicker">Gestión de células</p>
-            <h2>{getPageTitle(activeModule)}</h2>
-            <p>{getPageDescription(activeModule)}</p>
+            <h2>{getPageTitle(activeModule, visibleNavItems)}</h2>
+            <p>{getPageDescription(activeModule, visibleNavItems)}</p>
           </div>
 
           <div className="topbar-actions">

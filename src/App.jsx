@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient'
+import { canAccessView, getDefaultViewForRole } from './lib/permissions'
+
 import Auth from './components/Auth'
 import Layout from './components/Layout'
 import Dashboard from './components/Dashboard'
@@ -79,9 +81,37 @@ export default function App() {
     loadProfile()
   }, [session])
 
+  useEffect(() => {
+    if (!profile?.role) return
+
+    if (!canAccessView(profile.role, view)) {
+      setView(getDefaultViewForRole(profile.role))
+    }
+  }, [profile, view])
+
+  function safeSetView(nextView) {
+    if (!profile?.role) {
+      setView(nextView)
+      return
+    }
+
+    if (canAccessView(profile.role, nextView)) {
+      setView(nextView)
+      return
+    }
+
+    setView(getDefaultViewForRole(profile.role))
+  }
+
   const CurrentView = useMemo(() => {
+    if (!profile?.role) return Dashboard
+
+    if (!canAccessView(profile.role, view)) {
+      return Dashboard
+    }
+
     return views[view] || Dashboard
-  }, [view])
+  }, [view, profile])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -129,7 +159,7 @@ export default function App() {
           <p className="muted">
             Tu acceso está desactivado. Contacta a un administrador para revisar tu cuenta.
           </p>
-          <button className="primary-button" onClick={() => supabase.auth.signOut()}>
+          <button className="primary-button" onClick={handleLogout}>
             Cerrar sesión
           </button>
         </section>
@@ -142,7 +172,7 @@ export default function App() {
       user={session.user}
       profile={profile}
       currentView={view}
-      setCurrentView={setView}
+      setCurrentView={safeSetView}
       onLogout={handleLogout}
     >
       {!profile ? (
@@ -157,10 +187,10 @@ export default function App() {
           user={session.user}
           profile={profile}
           currentView={view}
-          setCurrentView={setView}
-          setCurrentPage={setView}
-          setActivePage={setView}
-          setActiveView={setView}
+          setCurrentView={safeSetView}
+          setCurrentPage={safeSetView}
+          setActivePage={safeSetView}
+          setActiveView={safeSetView}
         />
       )}
     </Layout>

@@ -1,309 +1,54 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { canCreate, canEdit, canDelete, canUpload } from '../lib/permissions'
+import {
+  Badge,
+  Card,
+  DangerButton,
+  EmptyState,
+  Field,
+  Input,
+  Notice,
+  PrimaryButton,
+  SecondaryButton,
+  Select,
+  StatCard,
+  Textarea
+} from './ui'
+import {
+  formatDate,
+  formatFileSize,
+  normalizeText,
+  sanitizeFileName
+} from '../lib/formatters'
+import {
+  bucketName,
+  emptyMaterial,
+  getCategoryBadge,
+  getDriveEmbedUrl,
+  getSourceType,
+  getStatusBadge,
+  getTypeIcon,
+  getYouTubeEmbedUrl,
+  materialAudiences,
+  materialCategories,
+  materialStatuses,
+  materialTypes,
+  sourceTypes
+} from '../lib/materialUtils'
 
-const bucketName = 'cell-materials'
-
-const sourceTypes = [
-  { id: 'upload', label: 'Subir archivo', icon: 'upload_file' },
-  { id: 'drive', label: 'Google Drive', icon: 'add_to_drive' },
-  { id: 'link', label: 'Link externo', icon: 'link' }
-]
-
-const materialTypes = [
-  'archivo',
-  'guía',
-  'pdf',
-  'video',
-  'enlace',
-  'imagen',
-  'documento',
-  'presentación',
-  'actividad',
-  'otro'
-]
-
-const categories = [
-  'enseñanza',
-  'discipulado',
-  'oración',
-  'evangelismo',
-  'jóvenes',
-  'niños',
-  'familias',
-  'capacitación',
-  'otro'
-]
-
-const audiences = [
-  'líderes',
-  'toda la célula',
-  'jóvenes',
-  'niños',
-  'familias',
-  'administradores'
-]
-
-const statuses = ['activo', 'archivado']
-
-const emptyMaterial = {
-  cell_id: '',
-  topic_id: '',
-  title: '',
-  material_type: 'archivo',
-  category: 'enseñanza',
-  description: '',
-  source_type: 'upload',
-  url: '',
-  drive_url: '',
-  author: '',
-  audience: 'líderes',
-  status: 'activo',
-  notes: ''
+function getSourceLabel(sourceType) {
+  if (sourceType === 'upload') return 'Archivo subido'
+  if (sourceType === 'drive') return 'Google Drive'
+  if (sourceType === 'link') return 'Link externo'
+  return 'Material'
 }
 
-function normalizeText(value) {
-  return String(value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
-
-function formatDate(value) {
-  if (!value) return 'Sin fecha'
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) return 'Sin fecha'
-
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const year = date.getFullYear()
-
-  return `${day}/${month}/${year}`
-}
-
-function sanitizeFileName(name) {
-  return String(name || 'archivo')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9._-]/g, '-')
-    .replace(/-+/g, '-')
-    .toLowerCase()
-}
-
-function formatFileSize(bytes) {
-  const size = Number(bytes || 0)
-
-  if (!size) return 'Sin tamaño'
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`
-
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function getSourceType(material) {
-  if (material?.source_type) return material.source_type
-  if (material?.storage_path) return 'upload'
-  if (material?.drive_url) return 'drive'
-  if (material?.url) return 'link'
-  return 'upload'
-}
-
-function getTypeIcon(type) {
-  if (type === 'guía') return 'menu_book'
-  if (type === 'pdf') return 'picture_as_pdf'
-  if (type === 'video') return 'play_circle'
-  if (type === 'enlace') return 'link'
-  if (type === 'imagen') return 'image'
-  if (type === 'documento') return 'description'
-  if (type === 'presentación') return 'slideshow'
-  if (type === 'actividad') return 'extension'
-  return 'folder_open'
-}
-
-function getStatusBadge(status) {
-  if (status === 'activo') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  return 'border-slate-200 bg-slate-100 text-slate-700'
-}
-
-function getCategoryBadge(category) {
-  if (category === 'enseñanza') return 'border-cyan-200 bg-cyan-50 text-cyan-700'
-  if (category === 'discipulado') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  if (category === 'oración') return 'border-violet-200 bg-violet-50 text-violet-700'
-  if (category === 'evangelismo') return 'border-amber-200 bg-amber-50 text-amber-700'
-  if (category === 'jóvenes') return 'border-pink-200 bg-pink-50 text-pink-700'
-  if (category === 'niños') return 'border-orange-200 bg-orange-50 text-orange-700'
-  return 'border-slate-200 bg-slate-50 text-slate-700'
-}
-
-function getDriveEmbedUrl(url) {
-  const value = String(url || '').trim()
-
-  if (!value) return ''
-
-  const fileMatch = value.match(/drive\.google\.com\/file\/d\/([^/]+)/)
-  if (fileMatch?.[1]) return `https://drive.google.com/file/d/${fileMatch[1]}/preview`
-
-  const openMatch = value.match(/[?&]id=([^&]+)/)
-  if (value.includes('drive.google.com/open') && openMatch?.[1]) {
-    return `https://drive.google.com/file/d/${openMatch[1]}/preview`
-  }
-
-  const documentMatch = value.match(/docs\.google\.com\/document\/d\/([^/]+)/)
-  if (documentMatch?.[1]) return `https://docs.google.com/document/d/${documentMatch[1]}/preview`
-
-  const presentationMatch = value.match(/docs\.google\.com\/presentation\/d\/([^/]+)/)
-  if (presentationMatch?.[1]) return `https://docs.google.com/presentation/d/${presentationMatch[1]}/preview`
-
-  const spreadsheetMatch = value.match(/docs\.google\.com\/spreadsheets\/d\/([^/]+)/)
-  if (spreadsheetMatch?.[1]) return `https://docs.google.com/spreadsheets/d/${spreadsheetMatch[1]}/preview`
-
-  return value
-}
-
-function getYouTubeEmbedUrl(url) {
-  const value = String(url || '').trim()
-
-  if (!value) return ''
-
-  const watchMatch = value.match(/youtube\.com\/watch\?v=([^&]+)/)
-  if (watchMatch?.[1]) return `https://www.youtube.com/embed/${watchMatch[1]}`
-
-  const shortMatch = value.match(/youtu\.be\/([^?]+)/)
-  if (shortMatch?.[1]) return `https://www.youtube.com/embed/${shortMatch[1]}`
-
-  const embedMatch = value.match(/youtube\.com\/embed\/([^?]+)/)
-  if (embedMatch?.[1]) return value
-
-  return ''
-}
-
-function Field({ label, children, helper }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-black text-slate-800">{label}</span>
-      {children}
-      {helper && <span className="mt-2 block text-xs font-semibold text-slate-500">{helper}</span>}
-    </label>
-  )
-}
-
-function Input(props) {
-  return (
-    <input
-      {...props}
-      className={`block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100 ${props.className || ''}`}
-    />
-  )
-}
-
-function Select(props) {
-  return (
-    <select
-      {...props}
-      className={`block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100 ${props.className || ''}`}
-    />
-  )
-}
-
-function Textarea(props) {
-  return (
-    <textarea
-      {...props}
-      className={`block min-h-32 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100 ${props.className || ''}`}
-    />
-  )
-}
-
-function Card({ children, className = '' }) {
-  return (
-    <section className={`rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-sm backdrop-blur ${className}`}>
-      {children}
-    </section>
-  )
-}
-
-function Badge({ children, className = '' }) {
-  return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-black capitalize ${className}`}>
-      {children}
-    </span>
-  )
-}
-
-function PrimaryButton({ children, className = '', ...props }) {
-  return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-[#003B5C] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-[#002A42] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function SecondaryButton({ children, className = '', ...props }) {
-  return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-[#EAF4F8] px-4 py-3 text-sm font-black text-[#003B5C] transition hover:bg-[#D8ECF4] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function DangerButton({ children, className = '', ...props }) {
-  return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function StatCard({ icon, label, value, tone = 'blue' }) {
-  const tones = {
-    blue: 'from-sky-50 to-cyan-50 text-sky-900 border-sky-100',
-    green: 'from-emerald-50 to-lime-50 text-emerald-900 border-emerald-100',
-    gold: 'from-amber-50 to-yellow-50 text-amber-900 border-amber-100',
-    red: 'from-red-50 to-rose-50 text-red-900 border-red-100'
-  }
-
-  return (
-    <article className={`rounded-[28px] border bg-linear-to-br p-5 shadow-sm ${tones[tone]}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide opacity-70">{label}</p>
-          <strong className="mt-2 block text-3xl font-black tracking-tight">{value}</strong>
-        </div>
-
-        <span className="material-symbols-rounded rounded-2xl bg-white/70 p-3 text-2xl shadow-sm">
-          {icon}
-        </span>
-      </div>
-    </article>
-  )
-}
-
-function Notice({ children }) {
-  return (
-    <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800">
-      {children}
-    </div>
-  )
-}
-
-function EmptyState({ icon, title, description }) {
-  return (
-    <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-      <span className="material-symbols-rounded text-5xl text-slate-400">{icon}</span>
-      <h3 className="mt-3 text-lg font-black text-slate-800">{title}</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm font-semibold text-slate-500">{description}</p>
-    </div>
-  )
+function getSourceIcon(sourceType, materialType) {
+  if (sourceType === 'drive') return 'add_to_drive'
+  if (sourceType === 'upload') return 'upload_file'
+  if (sourceType === 'link') return 'link'
+  return getTypeIcon(materialType)
 }
 
 export default function Materials({ user, profile }) {
@@ -323,7 +68,12 @@ export default function Materials({ user, profile }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const isAdmin = profile?.role === 'admin'
+  const role = profile?.role || 'viewer'
+  const allowCreate = canCreate(role, 'materials')
+  const allowEdit = canEdit(role, 'materials')
+  const allowDelete = canDelete(role, 'materials')
+  const allowUpload = canUpload(role, 'materials')
+  const isAdmin = role === 'admin'
 
   async function loadData(options = {}) {
     setLoading(true)
@@ -436,14 +186,27 @@ export default function Materials({ user, profile }) {
   }, [materials])
 
   function startCreate() {
+    if (!allowCreate) {
+      setMessage('Tu rol no tiene permiso para crear materiales.')
+      return
+    }
+
     setSelectedMaterial(null)
     setFileToUpload(null)
-    setForm(emptyMaterial)
+    setForm({
+      ...emptyMaterial,
+      source_type: allowUpload ? 'upload' : 'drive'
+    })
     setMode('create')
     setMessage('')
   }
 
   function startEdit(material) {
+    if (!allowEdit) {
+      setMessage('Tu rol no tiene permiso para editar materiales.')
+      return
+    }
+
     setSelectedMaterial(material)
     setFileToUpload(null)
 
@@ -484,6 +247,10 @@ export default function Materials({ user, profile }) {
   async function uploadSelectedFile() {
     if (!fileToUpload) return null
 
+    if (!allowUpload) {
+      throw new Error('Tu rol no tiene permiso para subir archivos.')
+    }
+
     const path = `${user.id}/${Date.now()}-${sanitizeFileName(fileToUpload.name)}`
 
     const { error } = await supabase.storage
@@ -508,13 +275,28 @@ export default function Materials({ user, profile }) {
     event.preventDefault()
     setMessage('')
 
+    if (mode === 'create' && !allowCreate) {
+      setMessage('Tu rol no tiene permiso para crear materiales.')
+      return
+    }
+
+    if (mode === 'edit' && !allowEdit) {
+      setMessage('Tu rol no tiene permiso para editar materiales.')
+      return
+    }
+
     if (!form.title.trim()) {
       setMessage('Escribe el título del material.')
       return
     }
 
     if (!isAdmin && !form.cell_id) {
-      setMessage('Como líder, selecciona una célula. Los materiales generales solo los puede crear un administrador.')
+      setMessage('Selecciona una célula. Los materiales generales solo los puede crear un administrador.')
+      return
+    }
+
+    if (form.source_type === 'upload' && !allowUpload) {
+      setMessage('Tu rol no tiene permiso para subir archivos.')
       return
     }
 
@@ -618,6 +400,11 @@ export default function Materials({ user, profile }) {
   }
 
   async function archiveMaterial(material) {
+    if (!allowEdit) {
+      setMessage('Tu rol no tiene permiso para archivar materiales.')
+      return
+    }
+
     const { error } = await supabase
       .from('cell_materials')
       .update({
@@ -636,6 +423,11 @@ export default function Materials({ user, profile }) {
   }
 
   async function activateMaterial(material) {
+    if (!allowEdit) {
+      setMessage('Tu rol no tiene permiso para activar materiales.')
+      return
+    }
+
     const { error } = await supabase
       .from('cell_materials')
       .update({
@@ -654,6 +446,11 @@ export default function Materials({ user, profile }) {
   }
 
   async function deleteMaterial(material) {
+    if (!allowDelete) {
+      setMessage('Tu rol no tiene permiso para eliminar materiales.')
+      return
+    }
+
     const confirmation = window.confirm('¿Eliminar este material? Esta acción no se puede deshacer.')
 
     if (!confirmation) return
@@ -694,6 +491,7 @@ export default function Materials({ user, profile }) {
         onSubmit={saveMaterial}
         onBack={backToList}
         isAdmin={isAdmin}
+        allowUpload={allowUpload}
       />
     )
   }
@@ -701,6 +499,7 @@ export default function Materials({ user, profile }) {
   if (mode === 'detail' && selectedMaterial) {
     const cell = selectedMaterial.cells || cellsById[selectedMaterial.cell_id]
     const topic = selectedMaterial.cell_topics || topicsById[selectedMaterial.topic_id]
+    const sourceType = getSourceType(selectedMaterial)
 
     return (
       <main className="space-y-6">
@@ -711,24 +510,28 @@ export default function Materials({ user, profile }) {
           </SecondaryButton>
 
           <div className="flex flex-wrap gap-2">
-            <PrimaryButton onClick={() => startEdit(selectedMaterial)}>
-              <span className="material-symbols-rounded text-lg">edit</span>
-              Editar
-            </PrimaryButton>
+            {allowEdit && (
+              <PrimaryButton onClick={() => startEdit(selectedMaterial)}>
+                <span className="material-symbols-rounded text-lg">edit</span>
+                Editar
+              </PrimaryButton>
+            )}
 
-            {selectedMaterial.status === 'activo' ? (
+            {allowEdit && selectedMaterial.status === 'activo' && (
               <SecondaryButton onClick={() => archiveMaterial(selectedMaterial)}>
                 <span className="material-symbols-rounded text-lg">archive</span>
                 Archivar
               </SecondaryButton>
-            ) : (
+            )}
+
+            {allowEdit && selectedMaterial.status !== 'activo' && (
               <SecondaryButton onClick={() => activateMaterial(selectedMaterial)}>
                 <span className="material-symbols-rounded text-lg">unarchive</span>
                 Activar
               </SecondaryButton>
             )}
 
-            {isAdmin && (
+            {allowDelete && (
               <DangerButton onClick={() => deleteMaterial(selectedMaterial)}>
                 <span className="material-symbols-rounded text-lg">delete</span>
                 Eliminar
@@ -741,7 +544,7 @@ export default function Materials({ user, profile }) {
           <p className="eyebrow">Detalle de material</p>
           <h2>{selectedMaterial.title}</h2>
           <p className="muted mt-3">
-            {cell?.name || 'Material general'} · {getSourceType(selectedMaterial) === 'upload' ? 'Archivo subido' : getSourceType(selectedMaterial) === 'drive' ? 'Google Drive' : 'Link externo'}
+            {cell?.name || 'Material general'} · {getSourceLabel(sourceType)}
           </p>
         </section>
 
@@ -782,10 +585,12 @@ export default function Materials({ user, profile }) {
             </p>
           </div>
 
-          <button className="primary-button" onClick={startCreate}>
-            <span className="material-symbols-rounded text-lg">add_circle</span>
-            Nuevo material
-          </button>
+          {allowCreate && (
+            <button className="primary-button" onClick={startCreate}>
+              <span className="material-symbols-rounded text-lg">add_circle</span>
+              Nuevo material
+            </button>
+          )}
         </div>
       </section>
 
@@ -845,7 +650,7 @@ export default function Materials({ user, profile }) {
           <Field label="Categoría">
             <Select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
               <option value="todas">Todas</option>
-              {categories.map((category) => (
+              {materialCategories.map((category) => (
                 <option key={category} value={category}>
                   {category}
                 </option>
@@ -856,7 +661,7 @@ export default function Materials({ user, profile }) {
           <Field label="Estado">
             <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="todos">Todos</option>
-              {statuses.map((status) => (
+              {materialStatuses.map((status) => (
                 <option key={status} value={status}>
                   {status}
                 </option>
@@ -922,7 +727,7 @@ export default function Materials({ user, profile }) {
                   <div className="mb-4 flex items-start gap-3">
                     <div className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-[#EAF4F8] text-[#003B5C]">
                       <span className="material-symbols-rounded">
-                        {sourceType === 'drive' ? 'add_to_drive' : sourceType === 'upload' ? 'upload_file' : getTypeIcon(material.material_type)}
+                        {getSourceIcon(sourceType, material.material_type)}
                       </span>
                     </div>
 
@@ -959,11 +764,13 @@ export default function Materials({ user, profile }) {
                       Ver
                     </PrimaryButton>
 
-                    <SecondaryButton onClick={() => startEdit(material)}>
-                      Editar
-                    </SecondaryButton>
+                    {allowEdit && (
+                      <SecondaryButton onClick={() => startEdit(material)}>
+                        Editar
+                      </SecondaryButton>
+                    )}
 
-                    {isAdmin && (
+                    {allowDelete && (
                       <DangerButton onClick={() => deleteMaterial(material)}>
                         Eliminar
                       </DangerButton>
@@ -979,10 +786,14 @@ export default function Materials({ user, profile }) {
   )
 }
 
-function SourceTypeSelector({ value, onChange }) {
+function SourceTypeSelector({ value, onChange, allowUpload }) {
+  const availableSources = sourceTypes.filter((source) => {
+    return source.id !== 'upload' || allowUpload
+  })
+
   return (
     <div className="grid gap-3 md:grid-cols-3">
-      {sourceTypes.map((source) => {
+      {availableSources.map((source) => {
         const active = value === source.id
 
         return (
@@ -1018,7 +829,8 @@ function MaterialForm({
   message,
   onSubmit,
   onBack,
-  isAdmin
+  isAdmin,
+  allowUpload
 }) {
   function handleSourceChange(sourceType) {
     setFileToUpload(null)
@@ -1055,6 +867,7 @@ function MaterialForm({
               <SourceTypeSelector
                 value={form.source_type}
                 onChange={handleSourceChange}
+                allowUpload={allowUpload}
               />
             </Field>
           </div>
@@ -1096,12 +909,12 @@ function MaterialForm({
           {!isAdmin && !form.cell_id && (
             <div className="md:col-span-2">
               <Notice>
-                Como líder, selecciona una célula. Los materiales generales solo los puede crear un administrador.
+                Selecciona una célula. Los materiales generales solo los puede crear un administrador.
               </Notice>
             </div>
           )}
 
-          {form.source_type === 'upload' && (
+          {form.source_type === 'upload' && allowUpload && (
             <div className="md:col-span-2">
               <Field
                 label="Subir archivo"
@@ -1197,7 +1010,7 @@ function MaterialForm({
               value={form.category}
               onChange={(event) => setForm({ ...form, category: event.target.value })}
             >
-              {categories.map((category) => (
+              {materialCategories.map((category) => (
                 <option key={category} value={category}>
                   {category}
                 </option>
@@ -1210,7 +1023,7 @@ function MaterialForm({
               value={form.audience}
               onChange={(event) => setForm({ ...form, audience: event.target.value })}
             >
-              {audiences.map((audience) => (
+              {materialAudiences.map((audience) => (
                 <option key={audience} value={audience}>
                   {audience}
                 </option>
@@ -1231,7 +1044,7 @@ function MaterialForm({
               value={form.status}
               onChange={(event) => setForm({ ...form, status: event.target.value })}
             >
-              {statuses.map((status) => (
+              {materialStatuses.map((status) => (
                 <option key={status} value={status}>
                   {status}
                 </option>
@@ -1381,7 +1194,7 @@ function MaterialPreview({ material }) {
         url={signedUrl}
       />
 
-      {previewError && <Notice>{previewError}</Notice>}
+      {previewError && <Notice tone="red">{previewError}</Notice>}
 
       {!signedUrl && !previewError && (
         <p className="mt-5 font-semibold text-slate-500">

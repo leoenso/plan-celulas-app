@@ -1,265 +1,39 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-
-const statuses = ['programado', 'visto', 'pospuesto', 'cancelado']
-const viewModes = [
-  { id: 'cards', label: 'Tarjetas', icon: 'view_agenda' },
-  { id: 'month', label: 'Mes', icon: 'calendar_month' },
-  { id: 'week', label: 'Semana', icon: 'view_week' },
-  { id: 'year', label: 'Año', icon: 'calendar_view_month' }
-]
-
-const emptyTopic = {
-  cell_id: '',
-  title: '',
-  bible_passage: '',
-  objective: '',
-  summary: '',
-  activity: '',
-  materials_needed: '',
-  notes: '',
-  suggested_date: new Date().toISOString().slice(0, 10),
-  status: 'programado'
-}
-
-const monthNames = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-]
-
-const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-
-function normalizeText(value) {
-  return String(value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
-
-function parseDate(value) {
-  if (!value) return new Date()
-  const [year, month, day] = String(value).split('-').map(Number)
-  return new Date(year, month - 1, day)
-}
-
-function toDateKey(date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function formatDate(value) {
-  if (!value) return 'Sin fecha'
-  const [year, month, day] = String(value).split('-')
-  return `${day}/${month}/${year}`
-}
-
-function formatLongDate(value) {
-  const date = typeof value === 'string' ? parseDate(value) : value
-  return `${date.getDate()} de ${monthNames[date.getMonth()]} de ${date.getFullYear()}`
-}
-
-function startOfWeek(date) {
-  const result = new Date(date)
-  const day = result.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  result.setDate(result.getDate() + diff)
-  result.setHours(0, 0, 0, 0)
-  return result
-}
-
-function addDays(date, amount) {
-  const result = new Date(date)
-  result.setDate(result.getDate() + amount)
-  return result
-}
-
-function addMonths(date, amount) {
-  const result = new Date(date)
-  result.setMonth(result.getMonth() + amount)
-  return result
-}
-
-function addYears(date, amount) {
-  const result = new Date(date)
-  result.setFullYear(result.getFullYear() + amount)
-  return result
-}
-
-function getMonthGridDays(date) {
-  const year = date.getFullYear()
-  const month = date.getMonth()
-
-  const firstDay = new Date(year, month, 1)
-  const start = startOfWeek(firstDay)
-
-  return Array.from({ length: 42 }, (_, index) => addDays(start, index))
-}
-
-function getWeekGridDays(date) {
-  const start = startOfWeek(date)
-  return Array.from({ length: 7 }, (_, index) => addDays(start, index))
-}
-
-function getStatusLabel(status) {
-  if (status === 'programado') return 'Programado'
-  if (status === 'visto') return 'Visto'
-  if (status === 'pospuesto') return 'Pospuesto'
-  if (status === 'cancelado') return 'Cancelado'
-  return status || 'Sin estado'
-}
-
-function getStatusBadge(status) {
-  if (status === 'visto') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  if (status === 'programado') return 'border-cyan-200 bg-cyan-50 text-cyan-700'
-  if (status === 'pospuesto') return 'border-amber-200 bg-amber-50 text-amber-700'
-  return 'border-red-200 bg-red-50 text-red-700'
-}
-
-function getRangeTitle(viewMode, calendarDate) {
-  if (viewMode === 'month') {
-    return `${monthNames[calendarDate.getMonth()]} ${calendarDate.getFullYear()}`
-  }
-
-  if (viewMode === 'week') {
-    const days = getWeekGridDays(calendarDate)
-    return `${formatLongDate(days[0])} - ${formatLongDate(days[6])}`
-  }
-
-  if (viewMode === 'year') {
-    return `${calendarDate.getFullYear()}`
-  }
-
-  return 'Vista de tarjetas'
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-black text-slate-800">{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function Input(props) {
-  return (
-    <input
-      {...props}
-      className={`block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100 ${props.className || ''}`}
-    />
-  )
-}
-
-function Select(props) {
-  return (
-    <select
-      {...props}
-      className={`block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100 ${props.className || ''}`}
-    />
-  )
-}
-
-function Textarea(props) {
-  return (
-    <textarea
-      {...props}
-      className={`block min-h-32 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100 ${props.className || ''}`}
-    />
-  )
-}
-
-function Card({ children, className = '' }) {
-  return (
-    <section className={`rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-sm backdrop-blur ${className}`}>
-      {children}
-    </section>
-  )
-}
-
-function Badge({ children, className = '' }) {
-  return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-black capitalize ${className}`}>
-      {children}
-    </span>
-  )
-}
-
-function PrimaryButton({ children, className = '', ...props }) {
-  return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-[#003B5C] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-[#002A42] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function SecondaryButton({ children, className = '', ...props }) {
-  return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-[#EAF4F8] px-4 py-3 text-sm font-black text-[#003B5C] transition hover:bg-[#D8ECF4] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function DangerButton({ children, className = '', ...props }) {
-  return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function StatCard({ icon, label, value, tone = 'blue' }) {
-  const tones = {
-    blue: 'from-sky-50 to-cyan-50 text-sky-900 border-sky-100',
-    green: 'from-emerald-50 to-lime-50 text-emerald-900 border-emerald-100',
-    gold: 'from-amber-50 to-yellow-50 text-amber-900 border-amber-100',
-    red: 'from-red-50 to-rose-50 text-red-900 border-red-100'
-  }
-
-  return (
-    <article className={`rounded-[28px] border bg-linear-to-br p-5 shadow-sm ${tones[tone]}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide opacity-70">{label}</p>
-          <strong className="mt-2 block text-3xl font-black tracking-tight">{value}</strong>
-        </div>
-
-        <span className="material-symbols-rounded rounded-2xl bg-white/70 p-3 text-2xl shadow-sm">
-          {icon}
-        </span>
-      </div>
-    </article>
-  )
-}
-
-function Notice({ children }) {
-  return (
-    <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800">
-      {children}
-    </div>
-  )
-}
-
-function EmptyState({ icon, title, description }) {
-  return (
-    <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-      <span className="material-symbols-rounded text-5xl text-slate-400">{icon}</span>
-      <h3 className="mt-3 text-lg font-black text-slate-800">{title}</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm font-semibold text-slate-500">{description}</p>
-    </div>
-  )
-}
+import { canCreate, canDelete, canEdit } from '../lib/permissions'
+import { formatDate, normalizeText } from '../lib/formatters'
+import {
+  addDays,
+  addMonths,
+  addYears,
+  emptyTopic,
+  getCompactCardClass,
+  getMonthGridDays,
+  getRangeTitle,
+  getStatusBadge,
+  getStatusLabel,
+  getWeekGridDays,
+  monthNames,
+  parseTopicDate,
+  topicStatuses,
+  topicViewModes,
+  toDateKey,
+  weekDays
+} from '../lib/topicUtils'
+import {
+  Badge,
+  Card,
+  DangerButton,
+  EmptyState,
+  Field,
+  Input,
+  Notice,
+  PrimaryButton,
+  SecondaryButton,
+  Select,
+  StatCard,
+  Textarea
+} from './ui'
 
 export default function Topics({ user, profile }) {
   const [cells, setCells] = useState([])
@@ -278,7 +52,11 @@ export default function Topics({ user, profile }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const isAdmin = profile?.role === 'admin'
+  const role = profile?.role
+  const isAdmin = role === 'admin'
+  const allowCreate = canCreate(role, 'topics')
+  const allowEdit = canEdit(role, 'topics')
+  const allowDelete = canDelete(role, 'topics')
 
   async function loadData(options = {}) {
     setLoading(true)
@@ -364,6 +142,11 @@ export default function Topics({ user, profile }) {
   }, [topics])
 
   function startCreate() {
+    if (!allowCreate) {
+      setMessage('Tu rol no tiene permiso para crear temas.')
+      return
+    }
+
     setSelectedTopic(null)
     setModalTopic(null)
     setForm(emptyTopic)
@@ -372,6 +155,11 @@ export default function Topics({ user, profile }) {
   }
 
   function startEdit(topic) {
+    if (!allowEdit) {
+      setMessage('Tu rol no tiene permiso para editar temas.')
+      return
+    }
+
     setSelectedTopic(topic)
     setModalTopic(null)
     setForm({
@@ -426,6 +214,16 @@ export default function Topics({ user, profile }) {
   async function saveTopic(event) {
     event.preventDefault()
     setMessage('')
+
+    if (mode === 'create' && !allowCreate) {
+      setMessage('Tu rol no tiene permiso para crear temas.')
+      return
+    }
+
+    if (mode === 'edit' && !allowEdit) {
+      setMessage('Tu rol no tiene permiso para editar temas.')
+      return
+    }
 
     if (!form.title.trim()) {
       setMessage('Escribe el título del tema.')
@@ -491,6 +289,11 @@ export default function Topics({ user, profile }) {
   }
 
   async function markAsCompleted(topic) {
+    if (!allowEdit) {
+      setMessage('Tu rol no tiene permiso para marcar temas como vistos.')
+      return
+    }
+
     const { error } = await supabase
       .from('cell_topics')
       .update({
@@ -511,6 +314,11 @@ export default function Topics({ user, profile }) {
   }
 
   async function postponeTopic(topic) {
+    if (!allowEdit) {
+      setMessage('Tu rol no tiene permiso para posponer temas.')
+      return
+    }
+
     const { error } = await supabase
       .from('cell_topics')
       .update({
@@ -530,6 +338,11 @@ export default function Topics({ user, profile }) {
   }
 
   async function deleteTopic(topic) {
+    if (!allowDelete) {
+      setMessage('Tu rol no tiene permiso para eliminar temas.')
+      return
+    }
+
     const confirmation = window.confirm('¿Eliminar este tema del calendario?')
 
     if (!confirmation) return
@@ -577,10 +390,12 @@ export default function Topics({ user, profile }) {
             </p>
           </div>
 
-          <button className="primary-button" onClick={startCreate}>
-            <span className="material-symbols-rounded text-lg">add_circle</span>
-            Nuevo tema
-          </button>
+          {allowCreate && (
+            <button className="primary-button" onClick={startCreate}>
+              <span className="material-symbols-rounded text-lg">add_circle</span>
+              Nuevo tema
+            </button>
+          )}
         </div>
       </section>
 
@@ -656,7 +471,7 @@ export default function Topics({ user, profile }) {
           <Field label="Estado">
             <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="todos">Todos</option>
-              {statuses.map((status) => (
+              {topicStatuses.map((status) => (
                 <option key={status} value={status}>
                   {getStatusLabel(status)}
                 </option>
@@ -707,7 +522,8 @@ export default function Topics({ user, profile }) {
                 onEdit={startEdit}
                 onComplete={markAsCompleted}
                 onDelete={deleteTopic}
-                isAdmin={isAdmin}
+                allowEdit={allowEdit}
+                allowDelete={allowDelete}
               />
             )}
 
@@ -749,7 +565,8 @@ export default function Topics({ user, profile }) {
         <TopicModal
           topic={modalTopic}
           cell={modalTopic.cells || cellsById[modalTopic.cell_id]}
-          isAdmin={isAdmin}
+          allowEdit={allowEdit}
+          allowDelete={allowDelete}
           onClose={closeTopicModal}
           onEdit={startEdit}
           onComplete={markAsCompleted}
@@ -764,7 +581,7 @@ export default function Topics({ user, profile }) {
 function ViewSwitcher({ viewMode, setViewMode }) {
   return (
     <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
-      {viewModes.map((view) => {
+      {topicViewModes.map((view) => {
         const active = viewMode === view.id
 
         return (
@@ -810,14 +627,7 @@ function TopicCompactCard({ topic, cell, onOpen, small = false }) {
   )
 }
 
-function getCompactCardClass(status) {
-  if (status === 'visto') return 'border-emerald-200 bg-emerald-50 text-emerald-800'
-  if (status === 'pospuesto') return 'border-amber-200 bg-amber-50 text-amber-800'
-  if (status === 'cancelado') return 'border-red-200 bg-red-50 text-red-800'
-  return 'border-cyan-200 bg-cyan-50 text-cyan-800'
-}
-
-function CardsView({ topics, cellsById, onOpen, onEdit, onComplete, onDelete, isAdmin }) {
+function CardsView({ topics, cellsById, onOpen, onEdit, onComplete, onDelete, allowEdit, allowDelete }) {
   return (
     <div>
       <div className="mb-5">
@@ -867,17 +677,21 @@ function CardsView({ topics, cellsById, onOpen, onEdit, onComplete, onDelete, is
                   Ver
                 </PrimaryButton>
 
-                <SecondaryButton onClick={() => onEdit(topic)}>
-                  Editar
-                </SecondaryButton>
+                {allowEdit && (
+                  <>
+                    <SecondaryButton onClick={() => onEdit(topic)}>
+                      Editar
+                    </SecondaryButton>
 
-                {topic.status !== 'visto' && (
-                  <SecondaryButton onClick={() => onComplete(topic)}>
-                    Visto
-                  </SecondaryButton>
+                    {topic.status !== 'visto' && (
+                      <SecondaryButton onClick={() => onComplete(topic)}>
+                        Visto
+                      </SecondaryButton>
+                    )}
+                  </>
                 )}
 
-                {isAdmin && (
+                {allowDelete && (
                   <DangerButton onClick={() => onDelete(topic)}>
                     Eliminar
                   </DangerButton>
@@ -1018,7 +832,7 @@ function YearCalendarView({ calendarDate, topics, cellsById, onOpen, onSelectMon
 
   const topicsByMonth = useMemo(() => {
     return topics.reduce((acc, topic) => {
-      const date = parseDate(topic.suggested_date)
+      const date = parseTopicDate(topic.suggested_date)
       if (date.getFullYear() !== year) return acc
 
       const month = date.getMonth()
@@ -1089,19 +903,10 @@ function YearCalendarView({ calendarDate, topics, cellsById, onOpen, onSelectMon
   )
 }
 
-function TopicModal({
-  topic,
-  cell,
-  isAdmin,
-  onClose,
-  onEdit,
-  onComplete,
-  onPostpone,
-  onDelete
-}) {
+function TopicModal({ topic, cell, allowEdit, allowDelete, onClose, onEdit, onComplete, onPostpone, onDelete }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
-     <section className="modal-scroll-hidden max-h-[92vh] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-4xl bg-white p-6 shadow-2xl">
+      <section className="modal-scroll-hidden max-h-[92vh] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-4xl bg-white p-6 shadow-2xl">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="eyebrow">Tema del calendario</p>
@@ -1153,26 +958,30 @@ function TopicModal({
             Cerrar
           </SecondaryButton>
 
-          <PrimaryButton type="button" onClick={() => onEdit(topic)}>
-            <span className="material-symbols-rounded text-lg">edit</span>
-            Editar
-          </PrimaryButton>
+          {allowEdit && (
+            <>
+              <PrimaryButton type="button" onClick={() => onEdit(topic)}>
+                <span className="material-symbols-rounded text-lg">edit</span>
+                Editar
+              </PrimaryButton>
 
-          {topic.status !== 'visto' && (
-            <SecondaryButton type="button" onClick={() => onComplete(topic)}>
-              <span className="material-symbols-rounded text-lg">check_circle</span>
-              Marcar visto
-            </SecondaryButton>
+              {topic.status !== 'visto' && (
+                <SecondaryButton type="button" onClick={() => onComplete(topic)}>
+                  <span className="material-symbols-rounded text-lg">check_circle</span>
+                  Marcar visto
+                </SecondaryButton>
+              )}
+
+              {topic.status !== 'pospuesto' && (
+                <SecondaryButton type="button" onClick={() => onPostpone(topic)}>
+                  <span className="material-symbols-rounded text-lg">event_repeat</span>
+                  Posponer
+                </SecondaryButton>
+              )}
+            </>
           )}
 
-          {topic.status !== 'pospuesto' && (
-            <SecondaryButton type="button" onClick={() => onPostpone(topic)}>
-              <span className="material-symbols-rounded text-lg">event_repeat</span>
-              Posponer
-            </SecondaryButton>
-          )}
-
-          {isAdmin && (
+          {allowDelete && (
             <DangerButton type="button" onClick={() => onDelete(topic)}>
               <span className="material-symbols-rounded text-lg">delete</span>
               Eliminar
@@ -1184,17 +993,7 @@ function TopicModal({
   )
 }
 
-function TopicForm({
-  mode,
-  form,
-  setForm,
-  cells,
-  saving,
-  message,
-  onSubmit,
-  onBack,
-  isAdmin
-}) {
+function TopicForm({ mode, form, setForm, cells, saving, message, onSubmit, onBack, isAdmin }) {
   return (
     <main className="space-y-6">
       <SecondaryButton onClick={onBack}>
@@ -1259,7 +1058,7 @@ function TopicForm({
               value={form.status}
               onChange={(event) => setForm({ ...form, status: event.target.value })}
             >
-              {statuses.map((status) => (
+              {topicStatuses.map((status) => (
                 <option key={status} value={status}>
                   {getStatusLabel(status)}
                 </option>
