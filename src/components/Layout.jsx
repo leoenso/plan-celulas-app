@@ -162,7 +162,7 @@ export default function Layout({
           <div className="brand-block inp-brand">
             <div className="brand-logo-wrap">
               <img
-                src="../public/inp-logo.png" 
+                 src="/inp-logo.png"
                 alt="Iglesia Nacional Presbiteriana"
                 className="brand-logo"
                 onError={(event) => {
