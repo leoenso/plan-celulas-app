@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { canCreate, canEdit, canDelete } from '../lib/permissions'
 
 const emptyCell = {
   name: '',
@@ -9,6 +10,7 @@ const emptyCell = {
   host_name: '',
   address_reference: '',
   leader_id: '',
+  assistant_id: '',
   assistant_name: '',
   status: 'activa',
   notes: ''
@@ -63,6 +65,7 @@ function toCellPayload(form) {
     host_name: form.host_name.trim() || null,
     address_reference: form.address_reference.trim() || null,
     leader_id: form.leader_id || null,
+    assistant_id: form.assistant_id || null,
     assistant_name: form.assistant_name.trim() || null,
     status: form.status || 'activa',
     notes: form.notes.trim() || null
@@ -84,8 +87,12 @@ export default function Cells({ user, profile }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const isAdmin = profile?.role === 'admin'
-  const canCreateCell = profile?.role === 'admin'
+  const role = profile?.role
+  const isAdmin = role === 'admin'
+
+  const allowCreateCell = canCreate(role, 'cells')
+  const allowEditCell = canEdit(role, 'cells')
+  const allowDeleteCell = canDelete(role, 'cells')
 
   async function loadData(options = {}) {
     setLoading(true)
@@ -118,7 +125,22 @@ export default function Cells({ user, profile }) {
     if (peopleResponse.error) setMessage(peopleResponse.error.message)
 
     setCells(cellsResponse.data || [])
-    setLeaders(leadersResponse.data || [])
+
+    const loadedLeaders = leadersResponse.data || []
+    const profileAsLeader =
+      profile?.user_id && !loadedLeaders.some((leader) => leader.user_id === profile.user_id)
+        ? [
+            ...loadedLeaders,
+            {
+              user_id: profile.user_id,
+              full_name: profile.full_name,
+              email: profile.email || user?.email,
+              role: profile.role
+            }
+          ]
+        : loadedLeaders
+
+    setLeaders(profileAsLeader)
     setFamilyCounts(familiesResponse.data || [])
     setPersonCounts(peopleResponse.data || [])
     setLoading(false)
@@ -164,11 +186,20 @@ export default function Cells({ user, profile }) {
     return result
   }, [cells, familyCounts, personCounts])
 
+  const visibleCells = useMemo(() => {
+    if (isAdmin) return cells
+
+    return cells.filter((cell) => {
+      return cell.leader_id === profile?.user_id
+    })
+  }, [cells, isAdmin, profile?.user_id])
+
   const filteredCells = useMemo(() => {
     const normalizedQuery = normalizeText(query)
 
-    return cells.filter((cell) => {
+    return visibleCells.filter((cell) => {
       const leaderName = leadersById[cell.leader_id]?.full_name || leadersById[cell.leader_id]?.email || ''
+      const assistantName = leadersById[cell.assistant_id]?.full_name || leadersById[cell.assistant_id]?.email || cell.assistant_name || ''
 
       const searchable = normalizeText([
         cell.name,
@@ -176,6 +207,7 @@ export default function Cells({ user, profile }) {
         cell.meeting_day,
         cell.host_name,
         cell.assistant_name,
+        assistantName,
         cell.address_reference,
         leaderName,
         cell.status
@@ -189,22 +221,34 @@ export default function Cells({ user, profile }) {
 
       return matchesQuery && matchesStatus && matchesLeader
     })
-  }, [cells, leadersById, query, statusFilter, leaderFilter])
+  }, [visibleCells, leadersById, query, statusFilter, leaderFilter])
 
   const summary = useMemo(() => {
-    const activeCells = cells.filter((cell) => cell.status === 'activa').length
-    const totalFamilies = familyCounts.filter((family) => family.active !== false).length
-    const totalPeople = Object.values(countsByCell).reduce((sum, item) => sum + item.totalPeople, 0)
+    const visibleCellIds = new Set(visibleCells.map((cell) => cell.id))
+    const activeCells = visibleCells.filter((cell) => cell.status === 'activa').length
+
+    const totalFamilies = familyCounts.filter((family) => {
+      return family.active !== false && visibleCellIds.has(family.cell_id)
+    }).length
+
+    const totalPeople = visibleCells.reduce((sum, cell) => {
+      return sum + Number(countsByCell[cell.id]?.totalPeople || 0)
+    }, 0)
 
     return {
-      total: cells.length,
+      total: visibleCells.length,
       activeCells,
       totalFamilies,
       totalPeople
     }
-  }, [cells, familyCounts, countsByCell])
+  }, [visibleCells, familyCounts, countsByCell])
 
   function openCreateForm() {
+    if (!allowCreateCell) {
+      setMessage('Tu rol no tiene permiso para crear células.')
+      return
+    }
+
     setCellForm(emptyCell)
     setSelectedCell(null)
     setMode('create')
@@ -212,6 +256,11 @@ export default function Cells({ user, profile }) {
   }
 
   function openEditForm(cell) {
+    if (!allowEditCell || !isCellManager(profile, cell)) {
+      setMessage('Tu rol no tiene permiso para editar esta célula.')
+      return
+    }
+
     setSelectedCell(cell)
     setCellForm({
       name: cell.name || '',
@@ -221,6 +270,7 @@ export default function Cells({ user, profile }) {
       host_name: cell.host_name || '',
       address_reference: cell.address_reference || '',
       leader_id: cell.leader_id || '',
+      assistant_id: cell.assistant_id || '',
       assistant_name: cell.assistant_name || '',
       status: cell.status || 'activa',
       notes: cell.notes || ''
@@ -246,6 +296,16 @@ export default function Cells({ user, profile }) {
     event.preventDefault()
     setMessage('')
 
+    if (mode === 'create' && !allowCreateCell) {
+      setMessage('Tu rol no tiene permiso para crear células.')
+      return
+    }
+
+    if (mode === 'edit' && (!allowEditCell || !isCellManager(profile, selectedCell))) {
+      setMessage('Tu rol no tiene permiso para editar esta célula.')
+      return
+    }
+
     if (!cellForm.name.trim()) {
       setMessage('Escribe el nombre de la célula.')
       return
@@ -254,6 +314,12 @@ export default function Cells({ user, profile }) {
     setSaving(true)
 
     const payload = toCellPayload(cellForm)
+
+    if (mode === 'edit' && profile?.role !== 'admin') {
+      payload.leader_id = selectedCell?.leader_id || null
+      payload.assistant_id = selectedCell?.assistant_id || null
+      payload.assistant_name = selectedCell?.assistant_name || null
+    }
 
     const response =
       mode === 'edit' && selectedCell?.id
@@ -287,6 +353,11 @@ export default function Cells({ user, profile }) {
   }
 
   async function deleteCell(cell) {
+    if (!allowDeleteCell) {
+      setMessage('Tu rol no tiene permiso para eliminar células.')
+      return
+    }
+
     const confirmation = window.confirm(
       `¿Eliminar la célula "${cell.name}"? También se eliminarán familias, personas, asistencias, informes y necesidades relacionadas.`
     )
@@ -334,8 +405,8 @@ export default function Cells({ user, profile }) {
         cell={selectedCell}
         profile={profile}
         leadersById={leadersById}
-        canManage={isCellManager(profile, selectedCell)}
-        canDeleteCell={isAdmin}
+        canManage={allowEditCell && isCellManager(profile, selectedCell)}
+        canDeleteCell={allowDeleteCell}
         onBack={backToList}
         onEdit={() => openEditForm(selectedCell)}
         onDelete={() => deleteCell(selectedCell)}
@@ -355,7 +426,7 @@ export default function Cells({ user, profile }) {
             </p>
           </div>
 
-          {canCreateCell && (
+          {allowCreateCell && (
             <button className="primary-button" onClick={openCreateForm}>
               + Nueva célula
             </button>
@@ -390,7 +461,7 @@ export default function Cells({ user, profile }) {
       <section className="card">
         <div className="section-heading">
           <h3>Buscar y filtrar</h3>
-          <p className="muted">Busca por nombre, zona, líder, anfitrión, día o estatus.</p>
+          <p className="muted">Busca por nombre, zona, líder, anfitrión, auxiliar, día o estatus.</p>
         </div>
 
         <div className="filter-grid">
@@ -469,7 +540,7 @@ export default function Cells({ user, profile }) {
                 totalPeople: 0
               }
 
-              const canManageThisCell = isCellManager(profile, cell)
+              const canManageThisCell = allowEditCell && isCellManager(profile, cell)
 
               return (
                 <article className="mini-card cell-card" key={cell.id}>
@@ -495,6 +566,9 @@ export default function Cells({ user, profile }) {
                       <strong>Líder:</strong> {leadersById[cell.leader_id]?.full_name || 'Sin asignar'}
                     </p>
                     <p>
+                      <strong>Auxiliar:</strong> {leadersById[cell.assistant_id]?.full_name || cell.assistant_name || 'No registrado'}
+                    </p>
+                    <p>
                       <strong>Anfitrión:</strong> {cell.host_name || 'No registrado'}
                     </p>
                   </div>
@@ -516,7 +590,7 @@ export default function Cells({ user, profile }) {
                       </button>
                     )}
 
-                    {isAdmin && (
+                    {allowDeleteCell && (
                       <button className="secondary-button danger-button" onClick={() => deleteCell(cell)}>
                         Eliminar
                       </button>
@@ -548,6 +622,10 @@ function CellFormView({
     mode === 'edit' &&
     profile?.role !== 'admin' &&
     selectedCell?.leader_id === profile?.user_id
+
+  const auxiliaryUsers = leaders.filter((leader) => {
+    return leader.role === 'auxiliar' || leader.role === 'leader' || leader.role === 'admin'
+  })
 
   return (
     <section className="page-stack">
@@ -620,12 +698,30 @@ function CellFormView({
           </label>
 
           <label>
-            Auxiliar / apoyo
-            <input
-              value={form.assistant_name}
-              onChange={(event) => setForm({ ...form, assistant_name: event.target.value })}
-              placeholder="Nombre del auxiliar"
-            />
+            Auxiliar asignado
+            <select
+              value={form.assistant_id}
+              disabled={profile?.role !== 'admin'}
+              onChange={(event) => {
+                const selectedAssistant = leaders.find((leader) => leader.user_id === event.target.value)
+
+                setForm({
+                  ...form,
+                  assistant_id: event.target.value,
+                  assistant_name: selectedAssistant
+                    ? selectedAssistant.full_name || selectedAssistant.email || ''
+                    : ''
+                })
+              }}
+            >
+              <option value="">Sin auxiliar asignado</option>
+
+              {auxiliaryUsers.map((leader) => (
+                <option key={leader.user_id} value={leader.user_id}>
+                  {leader.full_name || leader.email} · {leader.role}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label>
@@ -750,11 +846,19 @@ function CellDetail({
           </p>
 
           <p>
+            <strong>Auxiliar:</strong> {leadersById[cell.assistant_id]?.full_name || cell.assistant_name || 'No registrado'}
+          </p>
+
+          <p>
+            <strong>Correo auxiliar:</strong> {leadersById[cell.assistant_id]?.email || 'No registrado'}
+          </p>
+
+          <p>
             <strong>Anfitrión:</strong> {cell.host_name || 'No registrado'}
           </p>
 
           <p>
-            <strong>Auxiliar:</strong> {cell.assistant_name || 'No registrado'}
+            <strong>Auxiliar anterior / texto libre:</strong> {cell.assistant_name || 'No registrado'}
           </p>
 
           <p className="span-2">
@@ -767,9 +871,17 @@ function CellDetail({
         </div>
       </section>
 
-      <FamiliesSection cell={cell} canManage={canManage} />
+      <FamiliesSection
+        cell={cell}
+        canManage={canManage}
+        canDeleteRecords={canDeleteCell}
+      />
 
-      <PeopleSection cell={cell} canManage={canManage} />
+      <PeopleSection
+        cell={cell}
+        canManage={canManage}
+        canDeleteRecords={canDeleteCell}
+      />
     </section>
   )
 }
@@ -810,7 +922,7 @@ function CollapsibleSection({
   )
 }
 
-function FamiliesSection({ cell, canManage }) {
+function FamiliesSection({ cell, canManage, canDeleteRecords }) {
   const [families, setFamilies] = useState([])
   const [form, setForm] = useState(emptyFamily)
   const [editingFamily, setEditingFamily] = useState(null)
@@ -876,6 +988,11 @@ function FamiliesSection({ cell, canManage }) {
   }
 
   function startEdit(family) {
+    if (!canManage) {
+      setMessage('Tu rol no tiene permiso para editar familias.')
+      return
+    }
+
     setEditingFamily(family)
     setForm({
       family_name: family.family_name || '',
@@ -891,6 +1008,11 @@ function FamiliesSection({ cell, canManage }) {
   async function saveFamily(event) {
     event.preventDefault()
     setMessage('')
+
+    if (!canManage) {
+      setMessage('Tu rol no tiene permiso para guardar familias.')
+      return
+    }
 
     if (!form.family_name.trim()) {
       setMessage('Escribe el nombre de la familia.')
@@ -939,6 +1061,11 @@ function FamiliesSection({ cell, canManage }) {
   }
 
   async function toggleFamily(family) {
+    if (!canManage) {
+      setMessage('Tu rol no tiene permiso para cambiar el estado de familias.')
+      return
+    }
+
     const { error } = await supabase
       .from('cell_families')
       .update({
@@ -956,6 +1083,11 @@ function FamiliesSection({ cell, canManage }) {
   }
 
   async function deleteFamily(family) {
+    if (!canDeleteRecords) {
+      setMessage('Tu rol no tiene permiso para eliminar familias.')
+      return
+    }
+
     const confirmation = window.confirm(`¿Eliminar a la familia "${family.family_name}"?`)
 
     if (!confirmation) return
@@ -1130,12 +1262,14 @@ function FamiliesSection({ cell, canManage }) {
                           {family.active ? 'Desactivar' : 'Activar'}
                         </button>
 
-                        <button
-                          className="secondary-button compact-button danger-button"
-                          onClick={() => deleteFamily(family)}
-                        >
-                          Eliminar
-                        </button>
+                        {canDeleteRecords && (
+                          <button
+                            className="secondary-button compact-button danger-button"
+                            onClick={() => deleteFamily(family)}
+                          >
+                            Eliminar
+                          </button>
+                        )}
                       </div>
                     </td>
                   )}
@@ -1149,7 +1283,7 @@ function FamiliesSection({ cell, canManage }) {
   )
 }
 
-function PeopleSection({ cell, canManage }) {
+function PeopleSection({ cell, canManage, canDeleteRecords }) {
   const [people, setPeople] = useState([])
   const [form, setForm] = useState(emptyPerson)
   const [editingPerson, setEditingPerson] = useState(null)
@@ -1209,6 +1343,11 @@ function PeopleSection({ cell, canManage }) {
   }
 
   function startEdit(person) {
+    if (!canManage) {
+      setMessage('Tu rol no tiene permiso para editar personas.')
+      return
+    }
+
     setEditingPerson(person)
     setForm({
       full_name: person.full_name || '',
@@ -1224,6 +1363,11 @@ function PeopleSection({ cell, canManage }) {
   async function savePerson(event) {
     event.preventDefault()
     setMessage('')
+
+    if (!canManage) {
+      setMessage('Tu rol no tiene permiso para guardar personas.')
+      return
+    }
 
     if (!form.full_name.trim()) {
       setMessage('Escribe el nombre completo.')
@@ -1264,6 +1408,11 @@ function PeopleSection({ cell, canManage }) {
   }
 
   async function togglePerson(person) {
+    if (!canManage) {
+      setMessage('Tu rol no tiene permiso para cambiar el estado de personas.')
+      return
+    }
+
     const { error } = await supabase
       .from('cell_members')
       .update({ active: !person.active })
@@ -1278,6 +1427,11 @@ function PeopleSection({ cell, canManage }) {
   }
 
   async function deletePerson(person) {
+    if (!canDeleteRecords) {
+      setMessage('Tu rol no tiene permiso para eliminar personas.')
+      return
+    }
+
     const confirmation = window.confirm(`¿Eliminar a "${person.full_name}"?`)
 
     if (!confirmation) return
@@ -1452,12 +1606,14 @@ function PeopleSection({ cell, canManage }) {
                           {person.active ? 'Desactivar' : 'Activar'}
                         </button>
 
-                        <button
-                          className="secondary-button compact-button danger-button"
-                          onClick={() => deletePerson(person)}
-                        >
-                          Eliminar
-                        </button>
+                        {canDeleteRecords && (
+                          <button
+                            className="secondary-button compact-button danger-button"
+                            onClick={() => deletePerson(person)}
+                          >
+                            Eliminar
+                          </button>
+                        )}
                       </div>
                     </td>
                   )}

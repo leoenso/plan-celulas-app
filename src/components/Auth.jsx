@@ -32,7 +32,7 @@ export default function Auth() {
       if (errorText.toLowerCase().includes('invalid login credentials')) {
         setMessage('Correo o contraseña incorrectos. Si aún no tienes cuenta, presiona “Crear una cuenta nueva”.')
       } else if (errorText.toLowerCase().includes('email not confirmed')) {
-        setMessage('Tu correo aún no está confirmado. Revisa tu email o desactiva la confirmación en Supabase durante pruebas.')
+        setMessage('Tu correo aún no está confirmado. Revisa tu email')
       } else {
         setMessage(errorText)
       }
@@ -40,7 +40,7 @@ export default function Auth() {
     }
 
     if (mode === 'signup') {
-      setMessage('Cuenta creada. Si Supabase pide confirmación por correo, revisa tu email antes de iniciar sesión.')
+      setMessage('Cuenta creada. revisa tu email para confirmar tu cuenta y poder iniciar sesión.')
     }
   }
 

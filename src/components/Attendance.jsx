@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { canCreate, canDelete, canEdit } from '../lib/permissions'
 
 const emptySessionForm = {
   cell_id: '',
@@ -282,7 +283,10 @@ export default function Attendance({ user, profile }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const isAdmin = profile?.role === 'admin'
+  const role = profile?.role
+  const allowCreate = canCreate(role, 'attendance')
+  const allowEdit = canEdit(role, 'attendance')
+  const allowDelete = canDelete(role, 'attendance')
 
   async function loadData(options = {}) {
     setLoading(true)
@@ -441,6 +445,11 @@ export default function Attendance({ user, profile }) {
   }
 
   function startCreate() {
+    if (!allowCreate) {
+      setMessage('Tu rol no tiene permiso para crear asistencias.')
+      return
+    }
+
     const firstCellId = cells[0]?.id || ''
 
     setSelectedSession(null)
@@ -480,6 +489,11 @@ export default function Attendance({ user, profile }) {
   }
 
   async function startEdit(session) {
+    if (!allowEdit) {
+      setMessage('Tu rol no tiene permiso para editar asistencias.')
+      return
+    }
+
     setSelectedSession(session)
     setSessionForm({
       cell_id: session.cell_id,
@@ -638,6 +652,16 @@ export default function Attendance({ user, profile }) {
     event.preventDefault()
     setMessage('')
 
+    if (mode === 'create' && !allowCreate) {
+      setMessage('Tu rol no tiene permiso para crear asistencias.')
+      return
+    }
+
+    if (mode === 'edit' && !allowEdit) {
+      setMessage('Tu rol no tiene permiso para editar asistencias.')
+      return
+    }
+
     if (!sessionForm.cell_id) {
       setMessage('Selecciona una célula.')
       return
@@ -763,6 +787,11 @@ export default function Attendance({ user, profile }) {
   }
 
   async function deleteSession(session) {
+    if (!allowDelete) {
+      setMessage('Tu rol no tiene permiso para eliminar asistencias.')
+      return
+    }
+
     const cellName = session.cells?.name || cellsById[session.cell_id]?.name || 'esta célula'
 
     const confirmation = window.confirm(
@@ -822,12 +851,14 @@ export default function Attendance({ user, profile }) {
           </SecondaryButton>
 
           <div className="flex flex-wrap gap-2">
-            <PrimaryButton onClick={() => startEdit(selectedSession)}>
-              <span className="material-symbols-rounded text-lg">edit</span>
-              Editar
-            </PrimaryButton>
+            {allowEdit && (
+              <PrimaryButton onClick={() => startEdit(selectedSession)}>
+                <span className="material-symbols-rounded text-lg">edit</span>
+                Editar
+              </PrimaryButton>
+            )}
 
-            {isAdmin && (
+            {allowDelete && (
               <DangerButton onClick={() => deleteSession(selectedSession)}>
                 <span className="material-symbols-rounded text-lg">delete</span>
                 Eliminar
@@ -886,10 +917,12 @@ export default function Attendance({ user, profile }) {
             </p>
           </div>
 
-          <button className="primary-button" onClick={startCreate}>
-            <span className="material-symbols-rounded text-lg">add_circle</span>
-            Nueva asistencia
-          </button>
+          {allowCreate && (
+            <button className="primary-button" onClick={startCreate}>
+              <span className="material-symbols-rounded text-lg">add_circle</span>
+              Nueva asistencia
+            </button>
+          )}
         </div>
       </section>
 
@@ -1036,11 +1069,13 @@ export default function Attendance({ user, profile }) {
                       Ver
                     </PrimaryButton>
 
-                    <SecondaryButton onClick={() => startEdit(session)}>
-                      Editar
-                    </SecondaryButton>
+                    {allowEdit && (
+                      <SecondaryButton onClick={() => startEdit(session)}>
+                        Editar
+                      </SecondaryButton>
+                    )}
 
-                    {isAdmin && (
+                    {allowDelete && (
                       <DangerButton onClick={() => deleteSession(session)}>
                         Eliminar
                       </DangerButton>

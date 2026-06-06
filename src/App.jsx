@@ -133,17 +133,7 @@ export default function App() {
       <main className="center-screen">
         <section className="auth-card">
           <div className="brand-badge">Plan de Células</div>
-          <h1>Falta conectar Supabase</h1>
-          <p className="muted">
-            Crea un archivo llamado <strong>.env.local</strong> en la carpeta principal del proyecto y agrega tus claves de Supabase.
-          </p>
-          <pre className="code-block">
-            VITE_SUPABASE_URL=https://TU-PROYECTO.supabase.co{`\n`}
-            VITE_SUPABASE_ANON_KEY=TU-ANON-KEY
-          </pre>
-          <p className="muted small">
-            Después detén el servidor con Ctrl + C y vuelve a ejecutar npm run dev.
-          </p>
+          <h1>Falta conectar DB</h1>
         </section>
       </main>
     )
@@ -179,7 +169,7 @@ export default function App() {
         <section className="card">
           <h2>Tu perfil aún se está preparando</h2>
           <p>
-            Si acabas de registrarte, espera unos segundos y recarga la página. Si el problema continúa, revisa el trigger de perfiles en Supabase.
+            Si acabas de registrarte, espera unos segundos y recarga la página.
           </p>
         </section>
       ) : (

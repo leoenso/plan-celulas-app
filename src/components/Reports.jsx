@@ -1,222 +1,89 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
-const emptyReport = {
-  cell_id: '',
-  attendance_session_id: '',
-  report_date: new Date().toISOString().slice(0, 10),
-  topic: '',
-  bible_passage: '',
-  meeting_summary: '',
-  testimonies: '',
-  visitors_notes: '',
-  needs_detected: '',
-  follow_up_people: '',
-  leader_observations: '',
-  status: 'borrador'
-}
+import {
+  Badge,
+  Card,
+  DangerButton,
+  EmptyState,
+  Field,
+  Input,
+  Notice,
+  PrimaryButton,
+  SecondaryButton,
+  Select,
+  StatCard,
+  Textarea
+} from './ui'
 
-const statuses = ['borrador', 'enviado', 'revisado']
+import { formatDate, normalizeText } from '../lib/formatters'
+import { canCreate, canDelete, canEdit, canReview } from '../lib/permissions'
 
-function normalizeText(value) {
-  return String(value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
-
-function formatDate(value) {
-  if (!value) return 'Sin fecha'
-  const [year, month, day] = String(value).split('-')
-  return `${day}/${month}/${year}`
-}
-
-function getStatusLabel(status) {
-  if (status === 'borrador') return 'Borrador'
-  if (status === 'enviado') return 'Enviado'
-  if (status === 'revisado') return 'Revisado'
-  return status || 'Sin estatus'
-}
-
-function getStatusBadge(status) {
-  if (status === 'revisado') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  if (status === 'enviado') return 'border-cyan-200 bg-cyan-50 text-cyan-700'
-  return 'border-amber-200 bg-amber-50 text-amber-700'
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-black text-slate-800">{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function Input(props) {
-  return (
-    <input
-      {...props}
-      className={`block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100 ${props.className || ''}`}
-    />
-  )
-}
-
-function Select(props) {
-  return (
-    <select
-      {...props}
-      className={`block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100 ${props.className || ''}`}
-    />
-  )
-}
-
-function Textarea(props) {
-  return (
-    <textarea
-      {...props}
-      className={`block min-h-32 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-[#003B5C] focus:ring-4 focus:ring-sky-100 ${props.className || ''}`}
-    />
-  )
-}
-
-function Card({ children, className = '' }) {
-  return (
-    <section className={`rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-sm backdrop-blur ${className}`}>
-      {children}
-    </section>
-  )
-}
-
-function Badge({ children, className = '' }) {
-  return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-black ${className}`}>
-      {children}
-    </span>
-  )
-}
-
-function PrimaryButton({ children, className = '', ...props }) {
-  return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-[#003B5C] px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-[#002A42] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function SecondaryButton({ children, className = '', ...props }) {
-  return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-[#EAF4F8] px-4 py-3 text-sm font-black text-[#003B5C] transition hover:bg-[#D8ECF4] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function DangerButton({ children, className = '', ...props }) {
-  return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl bg-red-50 px-4 py-3 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function StatCard({ icon, label, value, tone = 'blue' }) {
-  const tones = {
-    blue: 'from-sky-50 to-cyan-50 text-sky-900 border-sky-100',
-    green: 'from-emerald-50 to-lime-50 text-emerald-900 border-emerald-100',
-    gold: 'from-amber-50 to-yellow-50 text-amber-900 border-amber-100',
-    red: 'from-red-50 to-rose-50 text-red-900 border-red-100'
-  }
-
-  return (
-    <article className={`rounded-[28px] border bg-linear-to-br p-5 shadow-sm ${tones[tone]}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide opacity-70">{label}</p>
-          <strong className="mt-2 block text-3xl font-black tracking-tight">{value}</strong>
-        </div>
-
-        <span className="material-symbols-rounded rounded-2xl bg-white/70 p-3 text-2xl shadow-sm">
-          {icon}
-        </span>
-      </div>
-    </article>
-  )
-}
-
-function Notice({ children }) {
-  return (
-    <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800">
-      {children}
-    </div>
-  )
-}
-
-function EmptyState({ icon, title, description }) {
-  return (
-    <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-      <span className="material-symbols-rounded text-5xl text-slate-400">{icon}</span>
-      <h3 className="mt-3 text-lg font-black text-slate-800">{title}</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm font-semibold text-slate-500">{description}</p>
-    </div>
-  )
-}
+import {
+  emptyReport,
+  getReportMoodBadge,
+  getReportMoodLabel,
+  getReportStatusBadge,
+  getReportStatusIcon,
+  getReportStatusLabel,
+  reportMoodOptions,
+  reportStatuses
+} from '../lib/reportUtils'
 
 export default function Reports({ user, profile }) {
   const [cells, setCells] = useState([])
-  const [sessions, setSessions] = useState([])
   const [reports, setReports] = useState([])
+  const [profiles, setProfiles] = useState([])
+
   const [mode, setMode] = useState('list')
   const [selectedReport, setSelectedReport] = useState(null)
   const [form, setForm] = useState(emptyReport)
+
   const [query, setQuery] = useState('')
   const [cellFilter, setCellFilter] = useState('todas')
   const [statusFilter, setStatusFilter] = useState('todos')
+  const [moodFilter, setMoodFilter] = useState('todos')
   const [dateFilter, setDateFilter] = useState('')
+
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const isAdmin = profile?.role === 'admin'
+  const role = profile?.role
+  const allowCreate = canCreate(role, 'reports')
+  const allowEdit = canEdit(role, 'reports')
+  const allowDelete = canDelete(role, 'reports')
+  const allowReview = canReview(role, 'reports')
 
   async function loadData(options = {}) {
     setLoading(true)
     if (!options.keepMessage) setMessage('')
 
-    const [cellsResponse, sessionsResponse, reportsResponse] = await Promise.all([
+    const [cellsResponse, reportsResponse, profilesResponse] = await Promise.all([
       supabase
         .from('cells')
         .select('id,name,zone,leader_id,status')
         .order('name'),
 
       supabase
-        .from('attendance_sessions')
-        .select('id,cell_id,meeting_date,topic,bible_passage,status')
-        .order('meeting_date', { ascending: false }),
+        .from('cell_reports')
+        .select('*, cells(id,name,zone)')
+        .order('report_date', { ascending: false })
+        .order('created_at', { ascending: false }),
 
       supabase
-        .from('cell_reports')
-        .select('*, cells(id,name,zone,leader_id)')
-        .order('report_date', { ascending: false })
-        .order('created_at', { ascending: false })
+        .from('profiles')
+        .select('user_id,full_name,email,role,active')
+        .order('full_name')
     ])
 
     if (cellsResponse.error) setMessage(cellsResponse.error.message)
-    if (sessionsResponse.error) setMessage(sessionsResponse.error.message)
     if (reportsResponse.error) setMessage(reportsResponse.error.message)
+    if (profilesResponse.error) setMessage(profilesResponse.error.message)
 
     setCells(cellsResponse.data || [])
-    setSessions(sessionsResponse.data || [])
     setReports(reportsResponse.data || [])
+    setProfiles(profilesResponse.data || [])
     setLoading(false)
   }
 
@@ -228,77 +95,97 @@ export default function Reports({ user, profile }) {
     return Object.fromEntries(cells.map((cell) => [cell.id, cell]))
   }, [cells])
 
-  const sessionsForSelectedCell = useMemo(() => {
-    if (!form.cell_id) return []
-    return sessions.filter((session) => session.cell_id === form.cell_id)
-  }, [sessions, form.cell_id])
+  const profilesById = useMemo(() => {
+    return Object.fromEntries(profiles.map((item) => [item.user_id, item]))
+  }, [profiles])
+
+  const visibleStatusOptions = useMemo(() => {
+    if (allowReview) return reportStatuses
+    return reportStatuses.filter((status) => status === 'borrador' || status === 'enviado')
+  }, [allowReview])
 
   const filteredReports = useMemo(() => {
     const normalizedQuery = normalizeText(query)
 
     return reports.filter((report) => {
       const cell = report.cells || cellsById[report.cell_id]
+      const author = profilesById[report.created_by]
+      const reviewer = profilesById[report.reviewed_by]
 
       const searchable = normalizeText([
         cell?.name,
         cell?.zone,
+        author?.full_name,
+        author?.email,
+        reviewer?.full_name,
+        reviewer?.email,
         report.report_date,
         report.topic,
         report.bible_passage,
         report.meeting_summary,
-        report.testimonies,
-        report.visitors_notes,
-        report.needs_detected,
-        report.follow_up_people,
-        report.leader_observations,
-        report.status
+        report.attendance_notes,
+        report.prayer_requests,
+        report.decisions,
+        report.challenges,
+        report.next_steps,
+        report.leader_comments,
+        report.status,
+        report.mood
       ].join(' '))
 
       const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery)
       const matchesCell = cellFilter === 'todas' || report.cell_id === cellFilter
       const matchesStatus = statusFilter === 'todos' || report.status === statusFilter
+      const matchesMood = moodFilter === 'todos' || report.mood === moodFilter
       const matchesDate = !dateFilter || report.report_date === dateFilter
 
-      return matchesQuery && matchesCell && matchesStatus && matchesDate
+      return matchesQuery && matchesCell && matchesStatus && matchesMood && matchesDate
     })
-  }, [reports, cellsById, query, cellFilter, statusFilter, dateFilter])
+  }, [reports, cellsById, profilesById, query, cellFilter, statusFilter, moodFilter, dateFilter])
 
   const summary = useMemo(() => {
     return {
       total: reports.length,
       drafts: reports.filter((report) => report.status === 'borrador').length,
       sent: reports.filter((report) => report.status === 'enviado').length,
-      reviewed: reports.filter((report) => report.status === 'revisado').length
+      reviewed: reports.filter((report) => report.status === 'revisado').length,
+      attention: reports.filter((report) => report.mood === 'requiere atención').length
     }
   }, [reports])
 
   function startCreate() {
-    const firstCellId = cells[0]?.id || ''
+    if (!allowCreate) {
+      setMessage('Tu rol no tiene permiso para crear informes.')
+      return
+    }
 
     setSelectedReport(null)
-    setForm({
-      ...emptyReport,
-      cell_id: firstCellId
-    })
+    setForm(emptyReport)
     setMode('create')
     setMessage('')
   }
 
   function startEdit(report) {
+    if (!allowEdit) {
+      setMessage('Tu rol no tiene permiso para editar informes.')
+      return
+    }
+
     setSelectedReport(report)
     setForm({
       cell_id: report.cell_id || '',
-      attendance_session_id: report.attendance_session_id || '',
       report_date: report.report_date || new Date().toISOString().slice(0, 10),
       topic: report.topic || '',
       bible_passage: report.bible_passage || '',
       meeting_summary: report.meeting_summary || '',
-      testimonies: report.testimonies || '',
-      visitors_notes: report.visitors_notes || '',
-      needs_detected: report.needs_detected || '',
-      follow_up_people: report.follow_up_people || '',
-      leader_observations: report.leader_observations || '',
-      status: report.status || 'borrador'
+      attendance_notes: report.attendance_notes || '',
+      prayer_requests: report.prayer_requests || '',
+      decisions: report.decisions || '',
+      challenges: report.challenges || '',
+      next_steps: report.next_steps || '',
+      leader_comments: report.leader_comments || '',
+      status: report.status || 'borrador',
+      mood: report.mood || 'buena'
     })
     setMode('edit')
     setMessage('')
@@ -317,21 +204,19 @@ export default function Reports({ user, profile }) {
     loadData({ keepMessage: true })
   }
 
-  function handleSessionChange(sessionId) {
-    const selectedSession = sessions.find((session) => session.id === sessionId)
-
-    setForm((current) => ({
-      ...current,
-      attendance_session_id: sessionId,
-      report_date: selectedSession?.meeting_date || current.report_date,
-      topic: selectedSession?.topic || current.topic,
-      bible_passage: selectedSession?.bible_passage || current.bible_passage
-    }))
-  }
-
   async function saveReport(event) {
     event.preventDefault()
     setMessage('')
+
+    if (!allowCreate && mode === 'create') {
+      setMessage('Tu rol no tiene permiso para crear informes.')
+      return
+    }
+
+    if (!allowEdit && mode === 'edit') {
+      setMessage('Tu rol no tiene permiso para editar informes.')
+      return
+    }
 
     if (!form.cell_id) {
       setMessage('Selecciona una célula.')
@@ -343,22 +228,38 @@ export default function Reports({ user, profile }) {
       return
     }
 
+    if (!form.topic.trim()) {
+      setMessage('Escribe el tema de la reunión.')
+      return
+    }
+
+    if (!allowReview && (form.status === 'revisado' || form.status === 'archivado')) {
+      setMessage('Tu rol no tiene permiso para marcar informes como revisados o archivados.')
+      return
+    }
+
     setSaving(true)
 
     const payload = {
-      cell_id: form.cell_id,
-      attendance_session_id: form.attendance_session_id || null,
+      cell_id: form.cell_id || null,
       report_date: form.report_date,
-      topic: form.topic.trim() || null,
+      topic: form.topic.trim(),
       bible_passage: form.bible_passage.trim() || null,
-      meeting_summary: form.meeting_summary.trim() || null,
-      testimonies: form.testimonies.trim() || null,
-      visitors_notes: form.visitors_notes.trim() || null,
-      needs_detected: form.needs_detected.trim() || null,
-      follow_up_people: form.follow_up_people.trim() || null,
-      leader_observations: form.leader_observations.trim() || null,
+      meeting_summary: form.meeting_summary.trim() || '',
+      attendance_notes: form.attendance_notes.trim() || null,
+      prayer_requests: form.prayer_requests.trim() || null,
+      decisions: form.decisions.trim() || null,
+      challenges: form.challenges.trim() || null,
+      next_steps: form.next_steps.trim() || null,
+      leader_comments: form.leader_comments.trim() || null,
       status: form.status || 'borrador',
+      mood: form.mood || 'buena',
       updated_at: new Date().toISOString()
+    }
+
+    if (form.status === 'revisado' && allowReview) {
+      payload.reviewed_by = user.id
+      payload.reviewed_at = new Date().toISOString()
     }
 
     const response =
@@ -392,15 +293,32 @@ export default function Reports({ user, profile }) {
     loadData({ keepMessage: true })
   }
 
-  async function markAsReviewed(report) {
+  async function updateReportStatus(report, status) {
+    setMessage('')
+
+    if (!allowEdit && status === 'enviado') {
+      setMessage('Tu rol no tiene permiso para enviar informes.')
+      return
+    }
+
+    if (!allowReview && (status === 'revisado' || status === 'archivado')) {
+      setMessage('Tu rol no tiene permiso para revisar o archivar informes.')
+      return
+    }
+
+    const payload = {
+      status,
+      updated_at: new Date().toISOString()
+    }
+
+    if (status === 'revisado') {
+      payload.reviewed_by = user.id
+      payload.reviewed_at = new Date().toISOString()
+    }
+
     const { error } = await supabase
       .from('cell_reports')
-      .update({
-        status: 'revisado',
-        reviewed_by: user.id,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .update(payload)
       .eq('id', report.id)
 
     if (error) {
@@ -408,11 +326,18 @@ export default function Reports({ user, profile }) {
       return
     }
 
-    setMessage('Informe marcado como revisado.')
+    setMessage(`Informe marcado como ${getReportStatusLabel(status).toLowerCase()}.`)
+    setSelectedReport(null)
+    setMode('list')
     loadData({ keepMessage: true })
   }
 
   async function deleteReport(report) {
+    if (!allowDelete) {
+      setMessage('Tu rol no tiene permiso para eliminar informes.')
+      return
+    }
+
     const confirmation = window.confirm('¿Eliminar este informe? Esta acción no se puede deshacer.')
 
     if (!confirmation) return
@@ -428,6 +353,8 @@ export default function Reports({ user, profile }) {
     }
 
     setMessage('Informe eliminado correctamente.')
+    setSelectedReport(null)
+    setMode('list')
     loadData({ keepMessage: true })
   }
 
@@ -438,18 +365,19 @@ export default function Reports({ user, profile }) {
         form={form}
         setForm={setForm}
         cells={cells}
-        sessionsForSelectedCell={sessionsForSelectedCell}
+        statusOptions={visibleStatusOptions}
         saving={saving}
         message={message}
         onSubmit={saveReport}
         onBack={backToList}
-        onSessionChange={handleSessionChange}
       />
     )
   }
 
   if (mode === 'detail' && selectedReport) {
     const cell = selectedReport.cells || cellsById[selectedReport.cell_id]
+    const author = profilesById[selectedReport.created_by]
+    const reviewer = profilesById[selectedReport.reviewed_by]
 
     return (
       <main className="space-y-6">
@@ -460,19 +388,35 @@ export default function Reports({ user, profile }) {
           </SecondaryButton>
 
           <div className="flex flex-wrap gap-2">
-            <PrimaryButton onClick={() => startEdit(selectedReport)}>
-              <span className="material-symbols-rounded text-lg">edit</span>
-              Editar
-            </PrimaryButton>
+            {allowEdit && (
+              <PrimaryButton onClick={() => startEdit(selectedReport)}>
+                <span className="material-symbols-rounded text-lg">edit</span>
+                Editar
+              </PrimaryButton>
+            )}
 
-            {isAdmin && selectedReport.status !== 'revisado' && (
-              <SecondaryButton onClick={() => markAsReviewed(selectedReport)}>
-                <span className="material-symbols-rounded text-lg">verified</span>
-                Marcar revisado
+            {allowEdit && selectedReport.status !== 'enviado' && selectedReport.status !== 'revisado' && (
+              <SecondaryButton onClick={() => updateReportStatus(selectedReport, 'enviado')}>
+                <span className="material-symbols-rounded text-lg">send</span>
+                Enviar
               </SecondaryButton>
             )}
 
-            {isAdmin && (
+            {allowReview && selectedReport.status !== 'revisado' && (
+              <SecondaryButton onClick={() => updateReportStatus(selectedReport, 'revisado')}>
+                <span className="material-symbols-rounded text-lg">verified</span>
+                Revisar
+              </SecondaryButton>
+            )}
+
+            {allowReview && selectedReport.status !== 'archivado' && (
+              <SecondaryButton onClick={() => updateReportStatus(selectedReport, 'archivado')}>
+                <span className="material-symbols-rounded text-lg">archive</span>
+                Archivar
+              </SecondaryButton>
+            )}
+
+            {allowDelete && (
               <DangerButton onClick={() => deleteReport(selectedReport)}>
                 <span className="material-symbols-rounded text-lg">delete</span>
                 Eliminar
@@ -483,29 +427,56 @@ export default function Reports({ user, profile }) {
 
         <section className="hero-card">
           <p className="eyebrow">Detalle de informe</p>
-          <h2>{cell?.name || 'Célula'}</h2>
+          <h2>{selectedReport.topic || 'Informe sin tema'}</h2>
           <p className="muted mt-3">
-            {formatDate(selectedReport.report_date)} · {selectedReport.topic || 'Sin tema'}
+            {cell?.name || 'Célula'} · {formatDate(selectedReport.report_date)}
           </p>
         </section>
 
         {message && <Notice>{message}</Notice>}
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <StatCard icon="assignment" label="Estado" value={getStatusLabel(selectedReport.status)} tone="blue" />
-          <StatCard icon="calendar_month" label="Fecha" value={formatDate(selectedReport.report_date)} tone="gold" />
-          <StatCard icon="church" label="Célula" value={cell?.name || 'Sin célula'} tone="green" />
+        <section className="grid gap-4 md:grid-cols-4">
+          <StatCard
+            icon="church"
+            label="Célula"
+            value={cell?.name || 'Célula'}
+            tone="blue"
+          />
+
+          <StatCard
+            icon={getReportStatusIcon(selectedReport.status)}
+            label="Estado"
+            value={getReportStatusLabel(selectedReport.status)}
+            tone={selectedReport.status === 'revisado' ? 'green' : 'gold'}
+          />
+
+          <StatCard
+            icon="sentiment_satisfied"
+            label="Evaluación"
+            value={getReportMoodLabel(selectedReport.mood)}
+            tone={selectedReport.mood === 'requiere atención' ? 'red' : 'green'}
+          />
+
+          <StatCard
+            icon="event"
+            label="Fecha"
+            value={formatDate(selectedReport.report_date)}
+            tone="violet"
+          />
         </section>
 
         <Card>
           <div className="grid gap-5">
             <ReportBlock title="Pasaje bíblico" value={selectedReport.bible_passage} />
             <ReportBlock title="Resumen de la reunión" value={selectedReport.meeting_summary} />
-            <ReportBlock title="Testimonios" value={selectedReport.testimonies} />
-            <ReportBlock title="Visitantes / nuevos asistentes" value={selectedReport.visitors_notes} />
-            <ReportBlock title="Necesidades detectadas" value={selectedReport.needs_detected} />
-            <ReportBlock title="Personas para seguimiento" value={selectedReport.follow_up_people} />
-            <ReportBlock title="Observaciones del líder" value={selectedReport.leader_observations} />
+            <ReportBlock title="Notas de asistencia" value={selectedReport.attendance_notes} />
+            <ReportBlock title="Peticiones de oración" value={selectedReport.prayer_requests} />
+            <ReportBlock title="Decisiones / compromisos" value={selectedReport.decisions} />
+            <ReportBlock title="Retos o situaciones" value={selectedReport.challenges} />
+            <ReportBlock title="Siguientes pasos" value={selectedReport.next_steps} />
+            <ReportBlock title="Comentarios del líder" value={selectedReport.leader_comments} />
+            <ReportBlock title="Creado por" value={author?.full_name || author?.email} />
+            <ReportBlock title="Revisado por" value={reviewer?.full_name || reviewer?.email} />
           </div>
         </Card>
       </main>
@@ -520,22 +491,25 @@ export default function Reports({ user, profile }) {
             <p className="eyebrow">Reportes de líderes</p>
             <h2>Informes</h2>
             <p className="muted mt-3 max-w-3xl">
-              Registra el resumen de cada reunión, testimonios, visitantes, necesidades y personas que requieren seguimiento.
+              Registra el resumen de cada reunión, avances, peticiones, retos y próximos pasos de las células.
             </p>
           </div>
 
-          <button className="primary-button" onClick={startCreate}>
-            <span className="material-symbols-rounded text-lg">add_circle</span>
-            Nuevo informe
-          </button>
+          {allowCreate && (
+            <button className="primary-button" onClick={startCreate}>
+              <span className="material-symbols-rounded text-lg">add_circle</span>
+              Nuevo informe
+            </button>
+          )}
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <StatCard icon="assignment" label="Total informes" value={summary.total} tone="blue" />
-        <StatCard icon="edit_note" label="Borradores" value={summary.drafts} tone="gold" />
-        <StatCard icon="send" label="Enviados" value={summary.sent} tone="green" />
-        <StatCard icon="verified" label="Revisados" value={summary.reviewed} tone="blue" />
+      <section className="grid gap-4 md:grid-cols-5">
+        <StatCard icon="assignment" label="Total" value={summary.total} tone="blue" />
+        <StatCard icon="draft" label="Borradores" value={summary.drafts} tone="gold" />
+        <StatCard icon="send" label="Enviados" value={summary.sent} tone="blue" />
+        <StatCard icon="verified" label="Revisados" value={summary.reviewed} tone="green" />
+        <StatCard icon="warning" label="Requieren atención" value={summary.attention} tone={summary.attention > 0 ? 'red' : 'green'} />
       </section>
 
       {message && <Notice>{message}</Notice>}
@@ -547,16 +521,16 @@ export default function Reports({ user, profile }) {
             Buscar y filtrar
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Busca por célula, tema, fecha, necesidades, testimonios o estado.
+            Busca por célula, tema, pasaje, resumen, estado o evaluación.
           </p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
+        <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr_1fr_1fr_1fr_auto]">
           <Field label="Buscar">
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Ej. oración, visita, familia, seguimiento..."
+              placeholder="Ej. oración, discipulado, Hechos, familia..."
             />
           </Field>
 
@@ -574,9 +548,20 @@ export default function Reports({ user, profile }) {
           <Field label="Estado">
             <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="todos">Todos</option>
-              {statuses.map((status) => (
+              {reportStatuses.map((status) => (
                 <option key={status} value={status}>
-                  {getStatusLabel(status)}
+                  {getReportStatusLabel(status)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Evaluación">
+            <Select value={moodFilter} onChange={(event) => setMoodFilter(event.target.value)}>
+              <option value="todos">Todas</option>
+              {reportMoodOptions.map((mood) => (
+                <option key={mood} value={mood}>
+                  {getReportMoodLabel(mood)}
                 </option>
               ))}
             </Select>
@@ -597,6 +582,7 @@ export default function Reports({ user, profile }) {
                 setQuery('')
                 setCellFilter('todas')
                 setStatusFilter('todos')
+                setMoodFilter('todos')
                 setDateFilter('')
               }}
             >
@@ -609,7 +595,7 @@ export default function Reports({ user, profile }) {
       <Card>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="eyebrow">Historial</p>
+            <p className="eyebrow">Listado</p>
             <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
               Informes registrados
             </h3>
@@ -630,7 +616,7 @@ export default function Reports({ user, profile }) {
           <EmptyState
             icon="assignment"
             title="Todavía no hay informes"
-            description="Cuando registres el primer informe de una célula, aparecerá aquí."
+            description="Cuando registres el primer informe, aparecerá aquí."
           />
         ) : (
           <div className="grid gap-4 lg:grid-cols-3">
@@ -642,26 +628,34 @@ export default function Reports({ user, profile }) {
                   key={report.id}
                   className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-lg font-black text-slate-900">
-                        {cell?.name || 'Célula'}
-                      </h4>
-                      <p className="text-sm font-semibold text-slate-500">
-                        {formatDate(report.report_date)}
-                      </p>
+                  <div className="mb-4 flex items-start gap-3">
+                    <div className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-[#EAF4F8] text-[#003B5C]">
+                      <span className="material-symbols-rounded">
+                        {getReportStatusIcon(report.status)}
+                      </span>
                     </div>
 
-                    <Badge className={getStatusBadge(report.status)}>
-                      {getStatusLabel(report.status)}
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-lg font-black text-slate-900">
+                        {report.topic || 'Informe sin tema'}
+                      </h4>
+                      <p className="text-sm font-semibold text-slate-500">
+                        {cell?.name || 'Célula'} · {formatDate(report.report_date)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    <Badge className={getReportStatusBadge(report.status)}>
+                      {getReportStatusLabel(report.status)}
+                    </Badge>
+
+                    <Badge className={getReportMoodBadge(report.mood)}>
+                      {getReportMoodLabel(report.mood)}
                     </Badge>
                   </div>
 
-                  <p className="text-sm font-semibold text-slate-700">
-                    <strong>Tema:</strong> {report.topic || 'Sin tema'}
-                  </p>
-
-                  <p className="mt-2 line-clamp-3 text-sm font-semibold text-slate-500">
+                  <p className="line-clamp-3 text-sm font-semibold leading-6 text-slate-600">
                     {report.meeting_summary || 'Sin resumen registrado.'}
                   </p>
 
@@ -670,17 +664,25 @@ export default function Reports({ user, profile }) {
                       Ver
                     </PrimaryButton>
 
-                    <SecondaryButton onClick={() => startEdit(report)}>
-                      Editar
-                    </SecondaryButton>
+                    {allowEdit && (
+                      <SecondaryButton onClick={() => startEdit(report)}>
+                        Editar
+                      </SecondaryButton>
+                    )}
 
-                    {isAdmin && report.status !== 'revisado' && (
-                      <SecondaryButton onClick={() => markAsReviewed(report)}>
+                    {allowEdit && report.status !== 'enviado' && report.status !== 'revisado' && (
+                      <SecondaryButton onClick={() => updateReportStatus(report, 'enviado')}>
+                        Enviar
+                      </SecondaryButton>
+                    )}
+
+                    {allowReview && report.status !== 'revisado' && (
+                      <SecondaryButton onClick={() => updateReportStatus(report, 'revisado')}>
                         Revisar
                       </SecondaryButton>
                     )}
 
-                    {isAdmin && (
+                    {allowDelete && (
                       <DangerButton onClick={() => deleteReport(report)}>
                         Eliminar
                       </DangerButton>
@@ -701,12 +703,11 @@ function ReportForm({
   form,
   setForm,
   cells,
-  sessionsForSelectedCell,
+  statusOptions,
   saving,
   message,
   onSubmit,
-  onBack,
-  onSessionChange
+  onBack
 }) {
   return (
     <main className="space-y-6">
@@ -717,9 +718,9 @@ function ReportForm({
 
       <section className="hero-card">
         <p className="eyebrow">{mode === 'edit' ? 'Editar informe' : 'Nuevo informe'}</p>
-        <h2>{mode === 'edit' ? 'Editar informe de reunión' : 'Crear informe de reunión'}</h2>
+        <h2>{mode === 'edit' ? 'Editar informe de célula' : 'Crear informe de célula'}</h2>
         <p className="muted mt-3 max-w-3xl">
-          Registra lo más importante de la reunión: tema, resumen, visitantes, necesidades y seguimiento.
+          Registra el resumen de la reunión, peticiones, retos, decisiones y próximos pasos.
         </p>
       </section>
 
@@ -730,33 +731,13 @@ function ReportForm({
           <Field label="Célula">
             <Select
               value={form.cell_id}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  cell_id: event.target.value,
-                  attendance_session_id: ''
-                })
-              }
+              onChange={(event) => setForm({ ...form, cell_id: event.target.value })}
               required
             >
               <option value="">Selecciona una célula</option>
               {cells.map((cell) => (
                 <option key={cell.id} value={cell.id}>
                   {cell.name} {cell.zone ? `· ${cell.zone}` : ''}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Vincular asistencia">
-            <Select
-              value={form.attendance_session_id}
-              onChange={(event) => onSessionChange(event.target.value)}
-            >
-              <option value="">Sin vincular</option>
-              {sessionsForSelectedCell.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {formatDate(session.meeting_date)} · {session.topic || 'Sin tema'}
                 </option>
               ))}
             </Select>
@@ -771,24 +752,12 @@ function ReportForm({
             />
           </Field>
 
-          <Field label="Estado">
-            <Select
-              value={form.status}
-              onChange={(event) => setForm({ ...form, status: event.target.value })}
-            >
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {getStatusLabel(status)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Tema visto">
+          <Field label="Tema de la reunión">
             <Input
               value={form.topic}
               onChange={(event) => setForm({ ...form, topic: event.target.value })}
               placeholder="Ej. La oración en la vida cristiana"
+              required
             />
           </Field>
 
@@ -800,57 +769,89 @@ function ReportForm({
             />
           </Field>
 
+          <Field label="Evaluación general">
+            <Select
+              value={form.mood}
+              onChange={(event) => setForm({ ...form, mood: event.target.value })}
+            >
+              {reportMoodOptions.map((mood) => (
+                <option key={mood} value={mood}>
+                  {getReportMoodLabel(mood)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Estado">
+            <Select
+              value={form.status}
+              onChange={(event) => setForm({ ...form, status: event.target.value })}
+            >
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {getReportStatusLabel(status)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <div className="md:col-span-2">
             <Field label="Resumen de la reunión">
               <Textarea
                 value={form.meeting_summary}
                 onChange={(event) => setForm({ ...form, meeting_summary: event.target.value })}
-                placeholder="Describe brevemente cómo se desarrolló la reunión."
+                placeholder="Describe brevemente qué se compartió y cómo respondió el grupo."
               />
             </Field>
           </div>
 
-          <Field label="Testimonios">
+          <Field label="Notas de asistencia">
             <Textarea
-              value={form.testimonies}
-              onChange={(event) => setForm({ ...form, testimonies: event.target.value })}
-              placeholder="Testimonios, respuestas de oración o momentos importantes."
+              value={form.attendance_notes}
+              onChange={(event) => setForm({ ...form, attendance_notes: event.target.value })}
+              placeholder="Cambios, visitas, familias ausentes, nuevos asistentes..."
             />
           </Field>
 
-          <Field label="Visitantes / nuevos asistentes">
+          <Field label="Peticiones de oración">
             <Textarea
-              value={form.visitors_notes}
-              onChange={(event) => setForm({ ...form, visitors_notes: event.target.value })}
-              placeholder="Personas nuevas, familias invitadas o visitantes."
+              value={form.prayer_requests}
+              onChange={(event) => setForm({ ...form, prayer_requests: event.target.value })}
+              placeholder="Peticiones o motivos de oración."
             />
           </Field>
 
-          <Field label="Necesidades detectadas">
+          <Field label="Decisiones / compromisos">
             <Textarea
-              value={form.needs_detected}
-              onChange={(event) => setForm({ ...form, needs_detected: event.target.value })}
-              placeholder="Oración, salud, visita, apoyo material, discipulado, etc."
+              value={form.decisions}
+              onChange={(event) => setForm({ ...form, decisions: event.target.value })}
+              placeholder="Decisiones tomadas, compromisos o respuestas del grupo."
             />
           </Field>
 
-          <Field label="Personas para seguimiento">
+          <Field label="Retos o situaciones">
             <Textarea
-              value={form.follow_up_people}
-              onChange={(event) => setForm({ ...form, follow_up_people: event.target.value })}
-              placeholder="Personas que requieren llamada, visita o acompañamiento."
+              value={form.challenges}
+              onChange={(event) => setForm({ ...form, challenges: event.target.value })}
+              placeholder="Situaciones que requieren atención."
             />
           </Field>
 
-          <div className="md:col-span-2">
-            <Field label="Observaciones del líder">
-              <Textarea
-                value={form.leader_observations}
-                onChange={(event) => setForm({ ...form, leader_observations: event.target.value })}
-                placeholder="Comentarios adicionales del líder de célula."
-              />
-            </Field>
-          </div>
+          <Field label="Siguientes pasos">
+            <Textarea
+              value={form.next_steps}
+              onChange={(event) => setForm({ ...form, next_steps: event.target.value })}
+              placeholder="Qué se debe hacer después de la reunión."
+            />
+          </Field>
+
+          <Field label="Comentarios del líder">
+            <Textarea
+              value={form.leader_comments}
+              onChange={(event) => setForm({ ...form, leader_comments: event.target.value })}
+              placeholder="Comentarios adicionales del líder o auxiliar."
+            />
+          </Field>
 
           <div className="flex flex-wrap gap-3 md:col-span-2">
             <PrimaryButton disabled={saving}>
@@ -870,7 +871,9 @@ function ReportForm({
 function ReportBlock({ title, value }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-      <h4 className="text-sm font-black uppercase tracking-wide text-slate-500">{title}</h4>
+      <h4 className="text-sm font-black uppercase tracking-wide text-slate-500">
+        {title}
+      </h4>
       <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-800">
         {value || 'No registrado.'}
       </p>
