@@ -1,5 +1,5 @@
 -- =====================================================
--- PLAN DE CÉLULAS - ESQUEMA SUPABASE
+-- PLAN DE GRUPOS PEQUEÑOS - ESQUEMA SUPABASE
 -- Pega este archivo completo en Supabase > SQL Editor > Run
 -- =====================================================
 

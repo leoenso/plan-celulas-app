@@ -200,7 +200,7 @@ function CollapsibleSection({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-slate-50"
+        className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
         aria-expanded={open}
       >
         <div>
@@ -867,7 +867,7 @@ export default function Dashboard({
       .slice(0, 4)
       .map((item) => ({
         id: item.id,
-        type: 'Célula',
+        type: 'Grupo pequeño',
         title: item.name,
         subtitle: item.zone || 'Sin zona',
         page: 'cells',
@@ -944,9 +944,9 @@ export default function Dashboard({
         <div className="row-between wrap">
           <div>
             <p className="eyebrow">Panel principal</p>
-            <h2>Bienvenido al Plan de Células</h2>
+            <h2>Bienvenido al Plan de Grupos Pequeños</h2>
             <p className="muted mt-3 max-w-3xl">
-              Visualiza el estado general del ministerio: células, asistencia, informes,
+              Visualiza el estado general del ministerio: grupos pequeños, asistencia, informes,
               necesidades, temas, materiales y usuarios activos.
             </p>
           </div>
@@ -993,7 +993,7 @@ export default function Dashboard({
       <CollapsibleSection
         eyebrow="Consulta"
         title="Buscador rápido"
-        description="Busca células, necesidades, temas o materiales sin salir del panel."
+        description="Busca grupos pequeños, necesidades, temas o materiales sin salir del panel."
       >
         <div className="flex flex-wrap justify-end gap-3">
           <SecondaryButton onClick={() => loadDashboard()}>
@@ -1080,7 +1080,7 @@ export default function Dashboard({
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <h4 className="font-black text-slate-900">
-                          {session.cells?.name || 'Célula'}
+                          {session.cells?.name || 'Grupo pequeño'}
                         </h4>
                         <p className="mt-1 text-sm font-semibold text-slate-500">
                           {formatDate(session.meeting_date)} · {session.topic || 'Sin tema'}
@@ -1140,7 +1140,7 @@ export default function Dashboard({
                     <div>
                       <h4 className="font-black text-red-900">{need.title}</h4>
                       <p className="mt-1 text-sm font-semibold text-red-700">
-                        {need.cells?.name || 'Célula'} · {need.category}
+                        {need.cells?.name || 'Grupo pequeño'} · {need.category}
                       </p>
                     </div>
 
@@ -1176,7 +1176,7 @@ export default function Dashboard({
               key={report.id}
               icon="assignment"
               title={report.topic || 'Informe sin tema'}
-              subtitle={`${report.cells?.name || 'Célula'} · ${formatDate(report.report_date)}`}
+              subtitle={`${report.cells?.name || 'Grupo pequeño'} · ${formatDate(report.report_date)}`}
               badge={report.status}
               badgeClass={getStatusBadge(report.status)}
               onClick={() => setPage('reports')}
@@ -1238,7 +1238,7 @@ export default function Dashboard({
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <QuickAction
             icon="groups"
-            title="Gestionar células"
+            title="Gestionar grupos pequeños"
             description="Agrega familias, personas y líderes."
             onClick={() => setPage('cells')}
           />
@@ -1286,70 +1286,73 @@ function FeaturedSummaryPanel({
   scopeLabel
 }) {
   return (
-    <section className="overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-sm">
-      <div className="relative overflow-hidden border-b border-slate-100 bg-linear-to-br from-[#F8FCFF] via-white to-[#EEF8F2] p-6 md:p-7">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-[#EAF4F8] blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-emerald-100/60 blur-2xl" />
+  <section className="featured-summary-panel overflow-hidden rounded-4xl border border-slate-200 bg-white shadow-sm">
+    <div className="featured-summary-header relative overflow-hidden border-b border-slate-100 bg-linear-to-br from-[#F8FCFF] via-white to-[#EEF8F2] p-6 md:p-7">
+      <div className="featured-summary-glow-blue pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-[#EAF4F8] blur-2xl" />
+      <div className="featured-summary-glow-green pointer-events-none absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-emerald-100/60 blur-2xl" />
 
-        <div className="relative flex flex-wrap items-center justify-between gap-5">
-          <div>
-            <p className="eyebrow">Vista principal</p>
-            <h2 className="mt-1 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
-              Resumen visual
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500 md:text-base">
-              Lo primero que ves al entrar: avance general, asistencia, temas, necesidades y actividad reciente.
-            </p>
+      <div className="relative flex flex-wrap items-center justify-between gap-5">
+        <div>
+          <p className="eyebrow">Vista principal</p>
 
-            {scopeLabel && (
-              <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow-sm">
-                <span className="material-symbols-rounded text-lg text-[#003B5C]">filter_alt</span>
-                <span className="truncate">{scopeLabel}</span>
-              </div>
-            )}
-          </div>
+          <h2 className="mt-1 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+            Resumen visual
+          </h2>
 
-          <div className="rounded-3xl border border-slate-200 bg-white/90 p-2 shadow-sm backdrop-blur">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setDashboardView('cards')}
-                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
-                  dashboardView === 'cards'
-                    ? 'bg-[#003B5C] text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-[#EAF4F8] hover:text-[#003B5C]'
-                }`}
-              >
-                <span className="material-symbols-rounded text-lg">dashboard</span>
-                Tarjetas
-              </button>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500 md:text-base">
+            Lo primero que ves al entrar: avance general, asistencia, temas, necesidades y actividad reciente.
+          </p>
 
-              <button
-                type="button"
-                onClick={() => setDashboardView('charts')}
-                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
-                  dashboardView === 'charts'
-                    ? 'bg-[#003B5C] text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-[#EAF4F8] hover:text-[#003B5C]'
-                }`}
-              >
-                <span className="material-symbols-rounded text-lg">monitoring</span>
-                Gráficas
-              </button>
+          {scopeLabel && (
+            <div className="featured-summary-scope mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow-sm">              <span className="material-symbols-rounded text-lg text-[#003B5C]">
+                filter_alt
+              </span>
+              <span className="truncate">{scopeLabel}</span>
             </div>
+          )}
+        </div>
+
+        <div className="featured-summary-toggle rounded-3xl border border-slate-200 bg-white/90 p-2 shadow-sm backdrop-blur">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setDashboardView('cards')}
+              className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
+                dashboardView === 'cards'
+                  ? 'bg-[#003B5C] text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-[#EAF4F8] hover:text-[#003B5C]'
+              }`}
+            >
+              <span className="material-symbols-rounded text-lg">dashboard</span>
+              Tarjetas
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDashboardView('charts')}
+              className={`inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
+                dashboardView === 'charts'
+                  ? 'bg-[#003B5C] text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-[#EAF4F8] hover:text-[#003B5C]'
+              }`}
+            >
+              <span className="material-symbols-rounded text-lg">monitoring</span>
+              Gráficas
+            </button>
           </div>
         </div>
       </div>
+    </div>
 
-      <div className="p-5 md:p-6">
+    <div className="p-5 md:p-6">
         {dashboardView === 'cards' ? (
           <div className="grid gap-4">
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 icon="groups"
-                label="Células activas"
+                label="Grupos pequeños activos"
                 value={dashboard.activeCells}
-                helper={`${dashboard.totalCells} registradas`}
+                helper={`${dashboard.totalCells} registrados`}
                 tone="blue"
                 onClick={() => setPage('cells')}
               />
@@ -1688,16 +1691,16 @@ function DashboardCharts({
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <Card>
           <div className="mb-5">
-            <p className="eyebrow">Células</p>
+            <p className="eyebrow">Grupos pequeños</p>
             <h3 className="mt-1 text-xl font-black tracking-tight text-slate-900">
-              Estado de células
+              Estado de grupos pequeños
             </h3>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Esta gráfica muestra el estado actual de las células.
+              Esta gráfica muestra el estado actual de los grupos pequeños.
             </p>
           </div>
 
-          <BarList title="Células" items={chartData.cellStatusData} />
+          <BarList title="Grupos pequeños" items={chartData.cellStatusData} />
         </Card>
 
         <Card>
@@ -2011,10 +2014,10 @@ function MyAssignedCellsCard({
           <div>
             <p className="eyebrow">Mi asignación</p>
             <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-              Aún no tienes célula asignada
+              Aún no tienes grupo pequeño asignado
             </h3>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Cuando un administrador te asigne como líder o auxiliar, tu célula aparecerá aquí.
+              Cuando un administrador te asigne como líder o auxiliar, tu grupo pequeño aparecerá aquí.
             </p>
           </div>
 
@@ -2032,19 +2035,19 @@ function MyAssignedCellsCard({
         <div>
           <p className="eyebrow">Mi asignación</p>
           <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-            {cells.length === 1 ? 'Tu célula asignada' : 'Tus células asignadas'}
+            {cells.length === 1 ? 'Tu grupo pequeño asignado' : 'Tus grupos pequeños asignados'}
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             {cells.length === 1
-              ? 'Esta es la célula donde estás sirviendo.'
-              : 'Selecciona la célula con la que quieres trabajar ahora.'}
+              ? 'Este es el grupo pequeño donde estás sirviendo.'
+              : 'Selecciona el grupo pequeño con el que quieres trabajar ahora.'}
           </p>
         </div>
 
         {cells.length > 1 && (
           <label className="min-w-72">
             <span className="mb-2 block text-sm font-black text-slate-800">
-              Cambiar célula activa
+              Cambiar grupo pequeño activo
             </span>
 
             <select

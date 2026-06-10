@@ -88,5 +88,5 @@ export function getNeedRelationLabel({ family, member, familyPersonName }) {
     return member.full_name
   }
 
-  return 'Necesidad general de la célula'
+  return 'Necesidad general del grupo pequeño'
 }

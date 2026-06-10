@@ -267,7 +267,7 @@ export default function Topics({ user, profile }) {
     }
 
     if (!isAdmin && !form.cell_id) {
-      setMessage('Como líder, selecciona una célula. Los temas generales solo los puede crear un administrador.')
+      setMessage('Como líder, selecciona un grupo pequeño. Los temas generales solo los puede crear un administrador.')
       return
     }
 
@@ -294,7 +294,7 @@ export default function Topics({ user, profile }) {
 
       if (targetCells.length === 0) {
         setSaving(false)
-        setMessage('No hay células disponibles para asignar este tema.')
+        setMessage('No hay grupos pequeños disponibles para asignar este tema.')
         return
       }
 
@@ -343,7 +343,7 @@ export default function Topics({ user, profile }) {
       mode === 'edit'
         ? 'Tema actualizado correctamente.'
         : form.cell_id === '__all__'
-          ? 'Tema asignado correctamente a todas las células seleccionadas.'
+          ? 'Tema asignado correctamente a todos los grupos pequeños seleccionados.'
           : 'Tema creado correctamente.'
     )
     setMode('list')
@@ -670,9 +670,9 @@ function ActiveTopicCellCard({
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="eyebrow">Célula activa</p>
+            <p className="eyebrow">Grupo pequeño activo</p>
             <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-              No tienes célula asignada
+              No tienes grupo pequeño asignado
             </h3>
             <p className="mt-1 text-sm font-semibold text-slate-500">
               Cuando un administrador te asigne como líder o auxiliar, podrás ver aquí tus temas.
@@ -691,21 +691,21 @@ function ActiveTopicCellCard({
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">Célula activa</p>
+          <p className="eyebrow">Grupo pequeño activo</p>
           <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-            {activeCell?.name || 'Selecciona una célula'}
+            {activeCell?.name || 'Selecciona un grupo pequeño'}
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             {activeCell
               ? `${activeCell.zone || 'Sin zona'} · ${activeCell.meeting_day || 'Sin día'} · ${activeCell.meeting_time ? String(activeCell.meeting_time).slice(0, 5) : 'Sin hora'}`
-              : 'Elige la célula con la que quieres trabajar.'}
+              : 'Elige el grupo pequeño con el que quieres trabajar.'}
           </p>
         </div>
 
         {assignedCells.length > 1 && (
           <label className="min-w-72">
             <span className="mb-2 block text-sm font-black text-slate-800">
-              Cambiar célula
+              Cambiar grupo pequeño
             </span>
             <select
               value={activeCellId}
@@ -1221,7 +1221,7 @@ function TopicForm({ mode, form, setForm, cells, saving, message, onSubmit, onBa
         <p className="eyebrow">{mode === 'edit' ? 'Editar tema' : 'Nuevo tema'}</p>
         <h2>{mode === 'edit' ? 'Editar tema del calendario' : 'Crear tema del calendario'}</h2>
         <p className="muted mt-3 max-w-3xl">
-          Puedes crear un tema general para todas las células o asignarlo a una célula específica.
+          Puedes crear un tema general para todos los grupos pequeños o asignarlo a un grupo pequeño específico.
         </p>
       </section>
 
@@ -1233,7 +1233,7 @@ function TopicForm({ mode, form, setForm, cells, saving, message, onSubmit, onBa
             label="Asignar tema"
             helper={
               form.cell_id === '__all__'
-                ? 'Se creará una copia del tema para cada célula, así cada una podrá marcarlo como visto o pospuesto por separado.'
+                ? 'Se creará una copia del tema para cada grupo pequeño, así cada grupo podrá marcarlo como visto o pospuesto por separado.'
                 : !form.cell_id && isAdmin
                   ? 'Tema general aparecerá como contenido común en las vistas de calendario.'
                   : undefined
@@ -1246,12 +1246,12 @@ function TopicForm({ mode, form, setForm, cells, saving, message, onSubmit, onBa
               {isAdmin ? (
                 <option value="">Tema general</option>
               ) : (
-                <option value="">Selecciona una célula</option>
+                <option value="">Selecciona un grupo pequeño</option>
               )}
 
               {canAssignToAll && (
                 <option value="__all__">
-                  {isAdmin ? 'Todas las células activas' : 'Todas mis células asignadas'}
+                  {isAdmin ? 'Todos los grupos pequeños activos' : 'Todos mis grupos pequeños asignados'}
                 </option>
               )}
 
@@ -1305,7 +1305,7 @@ function TopicForm({ mode, form, setForm, cells, saving, message, onSubmit, onBa
           {!isAdmin && !form.cell_id && (
             <div className="md:col-span-2">
               <Notice>
-                Como líder, selecciona una célula para crear un tema específico. Los temas generales solo los puede crear un administrador.
+                Como líder, selecciona un grupo pequeño para crear un tema específico. Los temas generales solo los puede crear un administrador.
               </Notice>
             </div>
           )}

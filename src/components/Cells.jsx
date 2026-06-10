@@ -72,6 +72,43 @@ function toCellPayload(form) {
   }
 }
 
+
+function StatCard({ icon, label, value, helper, tone = 'blue' }) {
+  const tones = {
+    blue: 'from-sky-50 to-cyan-50 text-sky-900 border-sky-100',
+    green: 'from-emerald-50 to-lime-50 text-emerald-900 border-emerald-100',
+    gold: 'from-amber-50 to-yellow-50 text-amber-900 border-amber-100',
+    red: 'from-red-50 to-rose-50 text-red-900 border-red-100',
+    violet: 'from-violet-50 to-purple-50 text-violet-900 border-violet-100'
+  }
+
+  return (
+    <article className={`rounded-[28px] border bg-linear-to-br p-5 shadow-sm ${tones[tone]}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide opacity-70">
+            {label}
+          </p>
+
+          <strong className="mt-2 block text-3xl font-black tracking-tight">
+            {value}
+          </strong>
+
+          {helper && (
+            <p className="mt-2 text-xs font-bold opacity-75">
+              {helper}
+            </p>
+          )}
+        </div>
+
+        <span className="material-symbols-rounded rounded-2xl bg-white/70 p-3 text-2xl shadow-sm">
+          {icon}
+        </span>
+      </div>
+    </article>
+  )
+}
+
 export default function Cells({ user, profile }) {
   const [cells, setCells] = useState([])
   const [leaders, setLeaders] = useState([])
@@ -245,7 +282,7 @@ export default function Cells({ user, profile }) {
 
   function openCreateForm() {
     if (!allowCreateCell) {
-      setMessage('Tu rol no tiene permiso para crear células.')
+      setMessage('Tu rol no tiene permiso para crear grupos pequeños.')
       return
     }
 
@@ -257,7 +294,7 @@ export default function Cells({ user, profile }) {
 
   function openEditForm(cell) {
     if (!allowEditCell || !isCellManager(profile, cell)) {
-      setMessage('Tu rol no tiene permiso para editar esta célula.')
+      setMessage('Tu rol no tiene permiso para editar este grupo pequeño.')
       return
     }
 
@@ -297,17 +334,17 @@ export default function Cells({ user, profile }) {
     setMessage('')
 
     if (mode === 'create' && !allowCreateCell) {
-      setMessage('Tu rol no tiene permiso para crear células.')
+      setMessage('Tu rol no tiene permiso para crear grupos pequeños.')
       return
     }
 
     if (mode === 'edit' && (!allowEditCell || !isCellManager(profile, selectedCell))) {
-      setMessage('Tu rol no tiene permiso para editar esta célula.')
+      setMessage('Tu rol no tiene permiso para editar este grupo pequeño.')
       return
     }
 
     if (!cellForm.name.trim()) {
-      setMessage('Escribe el nombre de la célula.')
+      setMessage('Escribe el nombre del grupo pequeño.')
       return
     }
 
@@ -345,7 +382,7 @@ export default function Cells({ user, profile }) {
       return
     }
 
-    setMessage(mode === 'edit' ? 'Célula actualizada correctamente.' : 'Célula creada correctamente.')
+    setMessage(mode === 'edit' ? 'Grupo pequeño actualizado correctamente.' : 'Grupo pequeño creado correctamente.')
     setCellForm(emptyCell)
     setMode('list')
     setSelectedCell(null)
@@ -354,12 +391,12 @@ export default function Cells({ user, profile }) {
 
   async function deleteCell(cell) {
     if (!allowDeleteCell) {
-      setMessage('Tu rol no tiene permiso para eliminar células.')
+      setMessage('Tu rol no tiene permiso para eliminar grupos pequeños.')
       return
     }
 
     const confirmation = window.confirm(
-      `¿Eliminar la célula "${cell.name}"? También se eliminarán familias, personas, asistencias, informes y necesidades relacionadas.`
+      `¿Eliminar el grupo pequeño "${cell.name}"? También se eliminarán familias, personas, asistencias, informes y necesidades relacionadas.`
     )
 
     if (!confirmation) return
@@ -376,7 +413,7 @@ export default function Cells({ user, profile }) {
       return
     }
 
-    setMessage('Célula eliminada correctamente.')
+    setMessage('Grupo pequeño eliminado correctamente.')
     setMode('list')
     setSelectedCell(null)
     loadData({ keepMessage: true })
@@ -415,45 +452,57 @@ export default function Cells({ user, profile }) {
   }
 
   return (
-    <section className="page-stack">
+    <section className="page-stack cells-page">
       <section className="hero-card">
         <div className="row-between wrap">
           <div>
-            <p className="eyebrow">Gestión de células</p>
-            <h2>Células</h2>
+            <p className="eyebrow">Gestión de grupos pequeños</p>
+            <h2>Grupos pequeños</h2>
             <p className="muted">
-              Aquí registras las células, sus líderes, familias y personas individuales.
+              Aquí registras los grupos pequeños, sus líderes, familias y personas individuales.
             </p>
           </div>
 
           {allowCreateCell && (
             <button className="primary-button" onClick={openCreateForm}>
-              + Nueva célula
+              + Nuevo grupo pequeño
             </button>
           )}
         </div>
       </section>
 
-      <section className="stats-grid">
-        <article className="stat-card">
-          <p>Total células</p>
-          <strong>{summary.total}</strong>
-        </article>
+      <section className="grid gap-4 md:grid-cols-4">
+        <StatCard
+          icon="groups"
+          label="Total grupos pequeños"
+          value={summary.total}
+          helper="Registrados"
+          tone="blue"
+        />
 
-        <article className="stat-card">
-          <p>Activas</p>
-          <strong>{summary.activeCells}</strong>
-        </article>
+        <StatCard
+          icon="check_circle"
+          label="Activas"
+          value={summary.activeCells}
+          helper="Grupos activos"
+          tone="green"
+        />
 
-        <article className="stat-card">
-          <p>Familias</p>
-          <strong>{summary.totalFamilies}</strong>
-        </article>
+        <StatCard
+          icon="family_restroom"
+          label="Familias"
+          value={summary.totalFamilies}
+          helper="Familias registradas"
+          tone="gold"
+        />
 
-        <article className="stat-card">
-          <p>Personas estimadas</p>
-          <strong>{summary.totalPeople}</strong>
-        </article>
+        <StatCard
+          icon="monitoring"
+          label="Personas estimadas"
+          value={summary.totalPeople}
+          helper="Entre familias e individuales"
+          tone="violet"
+        />
       </section>
 
       {message && <p className="notice">{message}</p>}
@@ -518,7 +567,7 @@ export default function Cells({ user, profile }) {
       <section className="card">
         <div className="section-heading row-between wrap">
           <div>
-            <h3>Células registradas</h3>
+            <h3>Grupos pequeños registrados</h3>
             <p className="muted">{filteredCells.length} resultado(s) encontrados.</p>
           </div>
 
@@ -530,7 +579,7 @@ export default function Cells({ user, profile }) {
         {loading ? (
           <p>Cargando...</p>
         ) : filteredCells.length === 0 ? (
-          <p className="muted">No hay células que coincidan con los filtros.</p>
+          <p className="muted">No hay grupos pequeños que coincidan con los filtros.</p>
         ) : (
           <div className="cards-grid cells-grid">
             {filteredCells.map((cell) => {
@@ -628,16 +677,16 @@ function CellFormView({
   })
 
   return (
-    <section className="page-stack">
+    <section className="page-stack cells-page">
       <button className="secondary-button fit" onClick={onCancel}>
-        ← Volver a células
+        ← Volver a grupos pequeños
       </button>
 
       <section className="card">
         <div className="section-heading">
-          <h3>{mode === 'edit' ? 'Editar célula' : 'Crear célula'}</h3>
+          <h3>{mode === 'edit' ? 'Editar grupo pequeño' : 'Crear grupo pequeño'}</h3>
           <p className="muted">
-            Primero creas la célula. Después, dentro de ella agregas familias y personas individuales.
+            Primero creas el grupo pequeño. Después, dentro de él agregas familias y personas individuales.
           </p>
         </div>
 
@@ -645,12 +694,12 @@ function CellFormView({
 
         <form className="grid-form" onSubmit={onSubmit}>
           <label>
-            Nombre de la célula
+            Nombre del grupo pequeño
             <input
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
               required
-              placeholder="Ej. Célula Norte"
+              placeholder="Ej. Grupo pequeño Norte"
             />
           </label>
 
@@ -775,7 +824,7 @@ function CellFormView({
 
           <div className="span-2 form-actions">
             <button className="primary-button" disabled={saving}>
-              {saving ? 'Guardando...' : mode === 'edit' ? 'Guardar cambios' : 'Crear célula'}
+              {saving ? 'Guardando...' : mode === 'edit' ? 'Guardar cambios' : 'Crear grupo pequeño'}
             </button>
 
             <button type="button" className="secondary-button" onClick={onCancel}>
@@ -798,22 +847,22 @@ function CellDetail({
   onDelete
 }) {
   return (
-    <section className="page-stack">
+    <section className="page-stack cells-page">
       <div className="row-between wrap">
         <button className="secondary-button fit" onClick={onBack}>
-          ← Volver a células
+          ← Volver a grupos pequeños
         </button>
 
         <div className="row-gap">
           {canManage && (
             <button className="primary-button" onClick={onEdit}>
-              Editar célula
+              Editar grupo pequeño
             </button>
           )}
 
           {canDeleteCell && (
             <button className="secondary-button danger-button" onClick={onDelete}>
-              Eliminar célula
+              Eliminar grupo pequeño
             </button>
           )}
         </div>
@@ -822,7 +871,7 @@ function CellDetail({
       <section className="hero-card">
         <div className="row-between wrap">
           <div>
-            <p className="eyebrow">Detalle de célula</p>
+            <p className="eyebrow">Detalle de grupo pequeño</p>
             <h2>{cell.name}</h2>
             <p className="muted">
               {cell.zone || 'Sin zona'} · {cell.meeting_day || 'Sin día'} · {formatTime(cell.meeting_time)}
@@ -1108,8 +1157,8 @@ function FamiliesSection({ cell, canManage, canDeleteRecords }) {
 
   return (
     <CollapsibleSection
-      title="Familias de la célula"
-      description="Aquí agregas las familias que pertenecen a esta célula."
+      title="Familias del grupo pequeño"
+      description="Aquí agregas las familias que pertenecen a este grupo pequeño."
       badges={
         <>
           <span className="pill">{activeFamilies} familias activas</span>
@@ -1206,7 +1255,7 @@ function FamiliesSection({ cell, canManage, canDeleteRecords }) {
       {loading ? (
         <p>Cargando familias...</p>
       ) : filteredFamilies.length === 0 ? (
-        <p className="muted">Todavía no hay familias registradas en esta célula.</p>
+        <p className="muted">Todavía no hay familias registradas en este grupo pequeño.</p>
       ) : (
         <div className="table-wrap">
           <table>

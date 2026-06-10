@@ -575,7 +575,7 @@ export default function Materials({ user, profile }) {
             Buscar y filtrar
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Busca por título, tipo, categoría, tema, célula, autor, enlace o archivo.
+            Busca por título, tipo, categoría, tema, grupo pequeño, autor, enlace o archivo.
           </p>
         </div>
 

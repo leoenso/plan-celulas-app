@@ -1,8 +1,8 @@
 -- =====================================================
 -- UPGRADE MÓDULO CÉLULAS CRUD
 -- Ejecuta este archivo SOLO si ya habías pegado schema.sql antes.
--- Permite que líderes de célula también eliminen integrantes
--- de sus propias células. Los administradores siguen pudiendo todo.
+-- Permite que líderes de grupo pequeño también eliminen integrantes
+-- de sus propias grupos pequeños. Los administradores siguen pudiendo todo.
 -- =====================================================
 
 drop policy if exists "members_delete_admin" on public.cell_members;

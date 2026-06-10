@@ -177,7 +177,7 @@ export default function FamiliesManager({ cell, canManage }) {
     <section className="card">
       <div className="section-heading row-between wrap">
         <div>
-          <h3>Familias de la célula</h3>
+          <h3>Familias del grupo pequeño</h3>
           <p className="muted">
             Registra familias completas con el número total de integrantes.
           </p>
@@ -278,7 +278,7 @@ export default function FamiliesManager({ cell, canManage }) {
       {loading ? (
         <p>Cargando familias...</p>
       ) : filteredFamilies.length === 0 ? (
-        <p className="muted">Todavía no hay familias registradas en esta célula.</p>
+        <p className="muted">Todavía no hay familias registradas en este grupo pequeño.</p>
       ) : (
         <div className="table-wrap">
           <table>

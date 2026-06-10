@@ -13,7 +13,7 @@ export const views = {
     roles: ['admin', 'leader', 'auxiliar', 'viewer']
   },
   cells: {
-    label: 'Células',
+    label: 'Grupos pequeños',
     icon: 'groups',
     description: 'Familias y grupos',
     roles: ['admin', 'leader']

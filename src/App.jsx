@@ -25,6 +25,20 @@ const views = {
   users: AdminUsers
 }
 
+function getInitialTheme() {
+  const savedTheme = localStorage.getItem('plan_celulas_theme')
+
+  if (savedTheme === 'light' || savedTheme === 'dark') {
+    return savedTheme
+  }
+
+  if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+    return 'dark'
+  }
+
+  return 'light'
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -36,12 +50,11 @@ export default function App() {
     return localStorage.getItem('plan_celulas_active_cell_id') || ''
   })
 
-  const [theme, setThemeState] = useState(() => {
-    return localStorage.getItem('plan_celulas_theme') || 'light'
-  })
+  const [theme, setThemeState] = useState(getInitialTheme)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
+    document.documentElement.style.colorScheme = theme
     localStorage.setItem('plan_celulas_theme', theme)
   }, [theme])
 
@@ -248,14 +261,20 @@ export default function App() {
     return (
       <main className="center-screen">
         <section className="auth-card">
-          <div className="brand-badge">Plan de Células</div>
+          <div className="brand-badge">Plan de Grupos Pequeños</div>
           <h1>Falta conectar DB</h1>
         </section>
       </main>
     )
   }
 
-  if (!session) return <Auth />
+  if (!session) {
+    return (
+      <AppProvider value={storeValue}>
+        <Auth />
+      </AppProvider>
+    )
+  }
 
   if (profile && profile.active === false) {
     return (

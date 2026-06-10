@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { getAllowedViews, getRoleLabel } from '../lib/permissions'
+import ThemeToggle from './ThemeToggle'
 
 function getPageTitle(pageId, items) {
   const item = items.find((navItem) => navItem.id === pageId || navItem.key === pageId)
-  return item?.label || 'Plan de Células'
+  return item?.label || 'Plan de Grupos Pequeños'
 }
 
 function getPageDescription(pageId, items) {
@@ -114,7 +115,7 @@ export default function Layout({
 
             <div>
               <p className="brand-kicker">El Divino Salvador</p>
-              <h1 className="brand-title">Plan de Células</h1>
+              <h1 className="brand-title">Plan de Grupos Pequeños</h1>
               <p className="brand-subtitle">2026</p>
             </div>
           </div>
@@ -181,12 +182,14 @@ export default function Layout({
           </button>
 
           <div>
-            <p className="topbar-kicker">Gestión de células</p>
+            <p className="topbar-kicker">Gestión de grupos pequeños</p>
             <h2>{getPageTitle(activeModule, visibleNavItems)}</h2>
             <p>{getPageDescription(activeModule, visibleNavItems)}</p>
           </div>
 
           <div className="topbar-actions">
+            <ThemeToggle />
+
             <span className="role-chip">
               <span className="material-symbols-rounded" aria-hidden="true">
                 verified_user

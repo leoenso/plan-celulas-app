@@ -248,7 +248,7 @@ export default function Reports({ user, profile }) {
     }
 
     if (!form.cell_id) {
-      setMessage('Selecciona una célula.')
+      setMessage('Selecciona un grupo pequeño.')
       return
     }
 
@@ -460,7 +460,7 @@ export default function Reports({ user, profile }) {
           <p className="eyebrow">Detalle de informe</p>
           <h2>{selectedReport.topic || 'Informe sin tema'}</h2>
           <p className="muted mt-3">
-            {cell?.name || 'Célula'} · {formatDate(selectedReport.report_date)}
+            {cell?.name || 'Grupo pequeño'} · {formatDate(selectedReport.report_date)}
           </p>
         </section>
 
@@ -469,8 +469,8 @@ export default function Reports({ user, profile }) {
         <section className="grid gap-4 md:grid-cols-4">
           <StatCard
             icon="church"
-            label="Célula"
-            value={cell?.name || 'Célula'}
+            label="Grupo pequeño"
+            value={cell?.name || 'Grupo pequeño'}
             tone="blue"
           />
 
@@ -522,7 +522,7 @@ export default function Reports({ user, profile }) {
             <p className="eyebrow">Reportes de líderes</p>
             <h2>Informes</h2>
             <p className="muted mt-3 max-w-3xl">
-              Registra el resumen de cada reunión, avances, peticiones, retos y próximos pasos de las células.
+              Registra el resumen de cada reunión, avances, peticiones, retos y próximos pasos de los grupos pequeños.
             </p>
           </div>
 
@@ -564,7 +564,7 @@ export default function Reports({ user, profile }) {
             Buscar y filtrar
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Busca por célula, tema, pasaje, resumen, estado o evaluación.
+            Busca por grupo pequeño, tema, pasaje, resumen, estado o evaluación.
           </p>
         </div>
 
@@ -577,7 +577,7 @@ export default function Reports({ user, profile }) {
             />
           </Field>
 
-          <Field label="Célula">
+          <Field label="Grupo pequeño">
             <Select
               value={cellFilter}
               onChange={(event) => {
@@ -694,7 +694,7 @@ export default function Reports({ user, profile }) {
                         {report.topic || 'Informe sin tema'}
                       </h4>
                       <p className="text-sm font-semibold text-slate-500">
-                        {cell?.name || 'Célula'} · {formatDate(report.report_date)}
+                        {cell?.name || 'Grupo pequeño'} · {formatDate(report.report_date)}
                       </p>
                     </div>
                   </div>
@@ -766,12 +766,12 @@ function ReportsActiveCellCard({
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="eyebrow">Célula activa</p>
+            <p className="eyebrow">Grupo pequeño activo</p>
             <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-              No tienes célula asignada
+              No tienes grupo pequeño asignado
             </h3>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Cuando un administrador te asigne como líder o auxiliar, podrás crear informes para esa célula.
+              Cuando un administrador te asigne como líder o auxiliar, podrás crear informes para ese grupo pequeño.
             </p>
           </div>
 
@@ -787,20 +787,20 @@ function ReportsActiveCellCard({
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">Célula activa</p>
+          <p className="eyebrow">Grupo pequeño activo</p>
           <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-            {activeCell?.name || 'Selecciona una célula'}
+            {activeCell?.name || 'Selecciona un grupo pequeño'}
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             {activeCell
               ? `${activeCell.zone || 'Sin zona'} · ${activeCell.meeting_day || 'Sin día'} · ${activeCell.meeting_time ? String(activeCell.meeting_time).slice(0, 5) : 'Sin hora'}`
-              : 'Elige la célula con la que quieres trabajar.'}
+              : 'Elige el grupo pequeño con el que quieres trabajar.'}
           </p>
         </div>
 
         <label className="min-w-72">
           <span className="mb-2 block text-sm font-black text-slate-800">
-            Cambiar célula
+            Cambiar grupo pequeño
           </span>
 
           <select
@@ -842,7 +842,7 @@ function ReportForm({
 
       <section className="hero-card">
         <p className="eyebrow">{mode === 'edit' ? 'Editar informe' : 'Nuevo informe'}</p>
-        <h2>{mode === 'edit' ? 'Editar informe de célula' : 'Crear informe de célula'}</h2>
+        <h2>{mode === 'edit' ? 'Editar informe de grupo pequeño' : 'Crear informe de grupo pequeño'}</h2>
         <p className="muted mt-3 max-w-3xl">
           Registra el resumen de la reunión, peticiones, retos, decisiones y próximos pasos.
         </p>
@@ -852,13 +852,13 @@ function ReportForm({
 
       <Card>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
-          <Field label="Célula">
+          <Field label="Grupo pequeño">
             <Select
               value={form.cell_id}
               onChange={(event) => setForm({ ...form, cell_id: event.target.value })}
               required
             >
-              <option value="">Selecciona una célula</option>
+              <option value="">Selecciona un grupo pequeño</option>
               {cells.map((cell) => (
                 <option key={cell.id} value={cell.id}>
                   {cell.name} {cell.zone ? `· ${cell.zone}` : ''}
@@ -868,7 +868,7 @@ function ReportForm({
 
             {role !== 'admin' && activeCellId && (
               <span className="mt-2 block text-xs font-semibold text-slate-500">
-                Se está usando tu célula activa. Puedes cambiarla desde el selector superior.
+                Se está usando tu grupo pequeño activo. Puedes cambiarlo desde el selector superior.
               </span>
             )}
           </Field>

@@ -415,7 +415,7 @@ export default function AdminUsers({ user, profile }) {
       return
     }
 
-    setMessage('Célula asignada correctamente.')
+    setMessage('Grupo pequeño asignado correctamente.')
     loadData({ keepMessage: true })
   }
 
@@ -441,7 +441,7 @@ export default function AdminUsers({ user, profile }) {
   async function copyInvitation() {
     const origin = window.location.origin
 
-    const text = `Hola, te invito a registrarte en la app del Plan de Células.
+    const text = `Hola, te invito a registrarte en la app del Plan de Grupos Pequeños.
 
 Entra a este enlace:
 ${origin}
@@ -450,7 +450,7 @@ ${origin}
 2. Avísame cuando termines el registro.
 3. Un administrador activará tu acceso y asignará tu rol.
 
-Gracias por apoyar el ministerio de células.`
+Gracias por apoyar el ministerio de grupos pequeños.`
 
     try {
       await navigator.clipboard.writeText(text)
@@ -486,7 +486,7 @@ Gracias por apoyar el ministerio de células.`
             <p className="eyebrow">Administración</p>
             <h2>Usuarios y permisos</h2>
             <p className="muted mt-3 max-w-3xl">
-              Administra roles, estados de acceso y asignación de líderes a células.
+              Administra roles, estados de acceso y asignación de líderes a grupos pequeños.
             </p>
           </div>
 
@@ -502,7 +502,7 @@ Gracias por apoyar el ministerio de células.`
         <StatCard icon="toggle_on" label="Activos" value={summary.active} tone="green" />
         <StatCard icon="admin_panel_settings" label="Admins" value={summary.admins} tone="gold" />
         <StatCard icon="person_raised_hand" label="Líderes" value={summary.leaders} tone="green" />
-        <StatCard icon="church" label="Células asignadas" value={summary.assignedCells} tone="blue" />
+        <StatCard icon="church" label="Grupos pequeños asignados" value={summary.assignedCells} tone="blue" />
       </section>
 
       {message && <Notice>{message}</Notice>}
@@ -514,7 +514,7 @@ Gracias por apoyar el ministerio de células.`
             Buscar y filtrar
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Busca por nombre, correo, rol, teléfono, ministerio o célula asignada.
+            Busca por nombre, correo, rol, teléfono, ministerio o grupo pequeño asignado.
           </p>
         </div>
 
@@ -523,7 +523,7 @@ Gracias por apoyar el ministerio de células.`
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Ej. líder, correo, célula..."
+              placeholder="Ej. líder, correo, grupo pequeño..."
             />
           </Field>
 
@@ -669,7 +669,7 @@ Gracias por apoyar el ministerio de células.`
                                 <Input
                                   value={form.ministry_area}
                                   onChange={(event) => setForm({ ...form, ministry_area: event.target.value })}
-                                  placeholder="Ej. Células, jóvenes, discipulado..."
+                                  placeholder="Ej. Grupos pequeños, jóvenes, discipulado..."
                                 />
                               </Field>
 
@@ -718,9 +718,9 @@ Gracias por apoyar el ministerio de células.`
                         <div className="mb-5 rounded-3xl border border-slate-200 bg-slate-50 p-5">
                           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                             <div>
-                              <h5 className="font-black text-slate-900">Células asignadas</h5>
+                              <h5 className="font-black text-slate-900">Grupos pequeños asignados</h5>
                               <p className="text-sm font-semibold text-slate-500">
-                                {assignedCells.length} célula(s) asignadas.
+                                {assignedCells.length} grupo(s) pequeño(s) asignado(s).
                               </p>
                             </div>
 
@@ -734,7 +734,7 @@ Gracias por apoyar el ministerio de células.`
 
                           {assignedCells.length === 0 ? (
                             <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-400">
-                              Este usuario todavía no tiene células asignadas.
+                              Este usuario todavía no tiene grupos pequeños asignados.
                             </p>
                           ) : (
                             <div className="grid gap-2 md:grid-cols-2">
@@ -797,7 +797,7 @@ Gracias por apoyar el ministerio de células.`
         <div className="mb-4">
           <p className="eyebrow">Control</p>
           <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-            Células sin líder asignado
+            Grupos pequeños sin líder asignado
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             Úsalas como referencia para asignar responsables.
@@ -806,7 +806,7 @@ Gracias por apoyar el ministerio de células.`
 
         {unassignedCells.length === 0 ? (
           <p className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-black text-emerald-700">
-            Todas las células tienen líder asignado.
+            Todos los grupos pequeños tienen líder asignado.
           </p>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -854,7 +854,7 @@ function AssignCellControl({ userId, cells, assignedCells, onAssign }) {
         onChange={(event) => setSelectedCell(event.target.value)}
         className="min-w-64"
       >
-        <option value="">Selecciona célula</option>
+        <option value="">Selecciona grupo pequeño</option>
 
         {availableCells.map((cell) => (
           <option key={cell.id} value={cell.id}>

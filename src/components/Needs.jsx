@@ -321,7 +321,7 @@ export default function Needs({ user, profile }) {
     }
 
     if (!form.cell_id) {
-      setMessage('Selecciona una célula.')
+      setMessage('Selecciona un grupo pequeño.')
       return
     }
 
@@ -516,7 +516,7 @@ export default function Needs({ user, profile }) {
           <p className="eyebrow">Detalle de necesidad</p>
           <h2>{selectedNeed.title}</h2>
           <p className="muted mt-3">
-            {cell?.name || 'Célula'} · {relationLabel}
+            {cell?.name || 'Grupo pequeño'} · {relationLabel}
           </p>
         </section>
 
@@ -554,7 +554,7 @@ export default function Needs({ user, profile }) {
 
         <Card>
           <div className="grid gap-5">
-            <NeedBlock title="Célula" value={cell?.name} />
+            <NeedBlock title="Grupo pequeño" value={cell?.name} />
             <NeedBlock title="Persona o familia relacionada" value={relationLabel} />
             <NeedBlock title="Responsable" value={responsible?.full_name || responsible?.email} />
             <NeedBlock title="Descripción" value={selectedNeed.description} />
@@ -613,7 +613,7 @@ export default function Needs({ user, profile }) {
             Buscar y filtrar
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Busca por título, célula, familia, persona, categoría, prioridad o responsable.
+            Busca por título, grupo pequeño, familia, persona, categoría, prioridad o responsable.
           </p>
         </div>
 
@@ -626,7 +626,7 @@ export default function Needs({ user, profile }) {
             />
           </Field>
 
-          <Field label="Célula">
+          <Field label="Grupo pequeño">
             {showAssignedCellSwitcher ? (
               <Select
                 value={activeAssignedCellId}
@@ -756,7 +756,7 @@ export default function Needs({ user, profile }) {
                         {need.title}
                       </h4>
                       <p className="text-sm font-semibold text-slate-500">
-                        {cell?.name || 'Célula'} · {relationLabel}
+                        {cell?.name || 'Grupo pequeño'} · {relationLabel}
                       </p>
                     </div>
                   </div>
@@ -843,7 +843,7 @@ function NeedForm({
         <p className="eyebrow">{mode === 'edit' ? 'Editar necesidad' : 'Nueva necesidad'}</p>
         <h2>{mode === 'edit' ? 'Editar necesidad registrada' : 'Crear necesidad pastoral'}</h2>
         <p className="muted mt-3 max-w-3xl">
-          Puedes registrar necesidades de toda una familia, de una persona dentro de la familia, de una persona individual o de la célula en general.
+          Puedes registrar necesidades de toda una familia, de una persona dentro de la familia, de una persona individual o del grupo pequeño en general.
         </p>
       </section>
 
@@ -851,7 +851,7 @@ function NeedForm({
 
       <Card>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
-          <Field label="Célula">
+          <Field label="Grupo pequeño">
             <Select
               value={form.cell_id}
               onChange={(event) => {
@@ -867,7 +867,7 @@ function NeedForm({
               }}
               required
             >
-              <option value="">Selecciona una célula</option>
+              <option value="">Selecciona un grupo pequeño</option>
               {cells.map((cell) => (
                 <option key={cell.id} value={cell.id}>
                   {cell.name} {cell.zone ? `· ${cell.zone}` : ''}
@@ -1066,19 +1066,19 @@ function ActiveNeedCellCard({
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">Célula activa</p>
+          <p className="eyebrow">Grupo pequeño activo</p>
           <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-            {activeCell?.name || 'Sin célula seleccionada'}
+            {activeCell?.name || 'Sin grupo pequeño seleccionado'}
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            {activeCell?.zone || 'Sin zona'} · Las necesidades se filtrarán por esta célula.
+            {activeCell?.zone || 'Sin zona'} · Las necesidades se filtrarán por este grupo pequeño.
           </p>
         </div>
 
         {cells.length > 1 && (
           <label className="min-w-72">
             <span className="mb-2 block text-sm font-black text-slate-800">
-              Cambiar célula
+              Cambiar grupo pequeño
             </span>
 
             <select

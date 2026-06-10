@@ -33,7 +33,7 @@ export const materialCategories = [
 
 export const materialAudiences = [
   'líderes',
-  'toda la célula',
+  'todo el grupo pequeño',
   'jóvenes',
   'niños',
   'familias',

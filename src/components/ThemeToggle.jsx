@@ -11,6 +11,8 @@ export default function ThemeToggle() {
       className={`theme-toggle ${isDark ? 'dark-active' : ''}`}
       onClick={toggleTheme}
       title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      aria-pressed={isDark}
     >
       <span className="material-symbols-rounded" aria-hidden="true">
         {isDark ? 'dark_mode' : 'light_mode'}

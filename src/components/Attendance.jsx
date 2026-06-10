@@ -685,7 +685,7 @@ export default function Attendance({ user, profile }) {
     }
 
     if (!sessionForm.cell_id) {
-      setMessage('Selecciona una célula.')
+      setMessage('Selecciona un grupo pequeño.')
       return
     }
 
@@ -772,7 +772,7 @@ export default function Attendance({ user, profile }) {
         setSaving(false)
 
         if (error.code === '23505') {
-          setMessage('Ya existe una asistencia registrada para esta célula en esa fecha. Puedes editarla desde el historial.')
+          setMessage('Ya existe una asistencia registrada para este grupo pequeño en esa fecha. Puedes editarla desde el historial.')
         } else {
           setMessage(error.message)
         }
@@ -814,7 +814,7 @@ export default function Attendance({ user, profile }) {
       return
     }
 
-    const cellName = session.cells?.name || cellsById[session.cell_id]?.name || 'esta célula'
+    const cellName = session.cells?.name || cellsById[session.cell_id]?.name || 'este grupo pequeño'
 
     const confirmation = window.confirm(
       `¿Eliminar la asistencia de "${cellName}" del ${formatDate(session.meeting_date)}?`
@@ -891,7 +891,7 @@ export default function Attendance({ user, profile }) {
 
         <section className="hero-card">
           <p className="eyebrow">Detalle de asistencia</p>
-          <h2>{cell?.name || 'Célula'}</h2>
+          <h2>{cell?.name || 'Grupo pequeño'}</h2>
           <p className="muted mt-3">
             {formatDate(selectedSession.meeting_date)} · {selectedSession.topic || 'Sin tema'}
           </p>
@@ -976,7 +976,7 @@ export default function Attendance({ user, profile }) {
             Buscar y filtrar
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Busca por célula, familia, persona, zona, tema, pasaje o fecha.
+            Busca por grupo pequeño, familia, persona, zona, tema, pasaje o fecha.
           </p>
         </div>
 
@@ -985,11 +985,11 @@ export default function Attendance({ user, profile }) {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Ej. Familia Collí, Célula Norte, Romanos..."
+              placeholder="Ej. Familia Collí, Grupo pequeño Norte, Romanos..."
             />
           </Field>
 
-          <Field label="Célula">
+          <Field label="Grupo pequeño">
             <Select
               value={cellFilter}
               onChange={(event) => {
@@ -1057,7 +1057,7 @@ export default function Attendance({ user, profile }) {
           <EmptyState
             icon="fact_check"
             title="Todavía no hay asistencias"
-            description="Cuando registres la primera asistencia de una célula, aparecerá aquí."
+            description="Cuando registres la primera asistencia de un grupo pequeño, aparecerá aquí."
           />
         ) : (
           <div className="grid gap-4 lg:grid-cols-3">
@@ -1074,7 +1074,7 @@ export default function Attendance({ user, profile }) {
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                       <h4 className="text-lg font-black text-slate-900">
-                        {cell?.name || 'Célula'}
+                        {cell?.name || 'Grupo pequeño'}
                       </h4>
                       <p className="text-sm font-semibold text-slate-500">
                         {formatDate(session.meeting_date)}
@@ -1142,12 +1142,12 @@ function ActiveAttendanceCellCard({ cells, activeCell, activeCellId, onChangeCel
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="eyebrow">Célula activa</p>
+            <p className="eyebrow">Grupo pequeño activo</p>
             <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-              Aún no tienes célula asignada
+              Aún no tienes grupo pequeño asignado
             </h3>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Pide a un administrador que te asigne como líder o auxiliar de una célula.
+              Pide a un administrador que te asigne como líder o auxiliar de un grupo pequeño.
             </p>
           </div>
 
@@ -1163,9 +1163,9 @@ function ActiveAttendanceCellCard({ cells, activeCell, activeCellId, onChangeCel
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="eyebrow">Célula activa</p>
+          <p className="eyebrow">Grupo pequeño activo</p>
           <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-            {activeCell?.name || 'Selecciona una célula'}
+            {activeCell?.name || 'Selecciona un grupo pequeño'}
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
             {activeCell
@@ -1177,7 +1177,7 @@ function ActiveAttendanceCellCard({ cells, activeCell, activeCellId, onChangeCel
         {cells.length > 1 && (
           <label className="min-w-72">
             <span className="mb-2 block text-sm font-black text-slate-800">
-              Cambiar célula
+              Cambiar grupo pequeño
             </span>
 
             <Select
@@ -1235,14 +1235,14 @@ function AttendanceForm({
 
       <Card>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
-          <Field label="Célula">
+          <Field label="Grupo pequeño">
             <Select
               value={form.cell_id}
               disabled={mode === 'edit'}
               onChange={(event) => onCellChange(event.target.value)}
               required
             >
-              <option value="">Selecciona una célula</option>
+              <option value="">Selecciona un grupo pequeño</option>
               {cells.map((cell) => (
                 <option key={cell.id} value={cell.id}>
                   {cell.name} {cell.zone ? `· ${cell.zone}` : ''}
@@ -1343,7 +1343,7 @@ function AttendanceForm({
           <EmptyState
             icon="groups"
             title="No hay familias ni personas cargadas"
-            description="Ve al módulo Células, entra a Ver célula y agrega familias o personas individuales."
+            description="Ve al módulo Grupos pequeños, entra a Ver grupo pequeño y agrega familias o personas individuales."
           />
         ) : (
           <AttendanceTable
